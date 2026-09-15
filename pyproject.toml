@@ -3,6 +3,25 @@ name = "hurdle"
 version = "0.1.0"
 description = "Multimodal diabetes-risk predictor: omics, wearable, CGM, and retinal imaging"
 requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "xgboost",
+    "lightgbm",
+    "pyarrow",
+    "openpyxl",
+    "sqlalchemy>=2.0",
+    "torch",
+    "torchvision",
+    "transformers",
+]
+
+# reviewers run:  pip install -e ".[dev]"   then  pytest
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+serving = ["fastapi", "uvicorn"]
 
 [build-system]
 requires = ["setuptools>=68"]
