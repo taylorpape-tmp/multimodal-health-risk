@@ -1,4 +1,4 @@
-# HURDLE — Multimodal Diabetes-Risk Pipeline
+# Multimodal Diabetes-Risk Pipeline
 
 An end-to-end machine-learning pipeline that integrates **four biomedical data modalities** —
 multi-omics + clinical labs, wearable biosensors, continuous glucose monitoring (CGM), and retinal
