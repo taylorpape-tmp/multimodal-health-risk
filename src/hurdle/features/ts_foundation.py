@@ -1,32 +1,13 @@
 """Time-series foundation-model embeddings for wearable and CGM traces.
 
-The hand-crafted feature paths (wearable.py, cgm.py) reduce each subject's raw
-sequence to a handful of scalar summaries (cosinor, IS/IV/RA, MAGE/CONGA/MODD).
-That summarisation may discard sequential structure. This module offers the
-complementary path: a pretrained time-series foundation model embeds the RAW
-univariate sequence natively into a fixed-length vector, which downstream
-tabular models can consume alongside (or instead of) the hand-crafted features.
-
-Model: AutonLab/MOMENT-1-small (a ~40M-parameter T5-style encoder pretrained
-for time-series representation). It takes a univariate series of a FIXED length
-(512) and returns a 512-dim embedding. It applies reversible instance
-normalisation (RevIN) internally, so raw un-normalised values may be passed in.
-
-Preprocessing (documented, because the choice matters):
-  embed_series resamples ANY 1-D numeric series to the model's 512-sample input.
-  Downsampling uses contiguous bin means (anti-aliased); upsampling uses linear
-  interpolation. build_ts_embeddings does the modality-specific pre-resampling
-  BEFORE that step:
-    wearable - the worn HR series is resampled to HOURLY means first, so the
-               512-sample window preserves multi-day circadian structure rather
-               than aliasing minute-level noise.
-    cgm      - the cleaned, time-ordered glucose trace (5-min Dexcom) is passed
-               as-is and binned to 512, keeping excursion-scale detail.
-
-Public API:
-  load_ts_model(name)                 -> load+cache the foundation model once
-  embed_series(model, series_1d, ...) -> fixed-length embedding for one series
-  build_ts_embeddings(wear_dir, cgm)  -> per-subject embedding frames + parquets
+Where the hand-crafted paths (wearable.py, cgm.py) reduce each subject to scalar
+summaries and can lose sequential structure, this module embeds the raw univariate
+sequence into a fixed-length vector via AutonLab/MOMENT-1-small (a ~40M-parameter
+T5-style encoder taking a 512-sample series to a 512-dim embedding, with RevIN
+applied internally so raw values are fine). embed_series resamples any 1-D series
+to 512 samples (bin means down, linear interp up), and build_ts_embeddings
+pre-resamples per modality first (wearable HR to hourly means to keep circadian
+shape, CGM glucose passed as-is to keep excursion detail).
 """
 from pathlib import Path
 
@@ -101,11 +82,10 @@ def _resample_to_length(values, target_len=SEQ_LEN):
 def embed_series(model, series_1d, seq_len=SEQ_LEN, name=DEFAULT_MODEL):
     """Embed one univariate series into a fixed-length vector.
 
-    The series is resampled to `seq_len` samples (see _resample_to_length),
-    shaped to MOMENT's [batch=1, channel=1, seq_len] input, and passed through
-    the model in eval/no-grad mode. Returns a 1-D float64 numpy array of length
-    EMBED_DIM. Deterministic for the same input; always finite (a constant or
-    empty series still yields a finite, fixed-length vector).
+    Resamples the series to seq_len samples, shapes it to MOMENT's [1, 1, seq_len]
+    input, and runs the model in eval/no-grad mode. Returns a 1-D float64 array of
+    length EMBED_DIM, deterministic and always finite (even a constant or empty
+    series yields a finite vector).
     """
     import torch
 
@@ -148,11 +128,11 @@ def build_ts_embeddings(interim_wear_dir, cgm_path,
                         cgm_subject_col="subjectId",
                         cgm_glucose_col="GlucoseValue",
                         cgm_time_col="DisplayTime"):
-    """Embed every wearable and CGM subject; return (wear_df, cgm_df).
+    """Embed every wearable and CGM subject and return (wear_df, cgm_df).
 
-    One row per subject, EMBED_DIM embedding columns (ts000..). The wearable
-    frame is indexed by file stem (Basis_NNN); the CGM frame by subjectId. When
-    wear_out/cgm_out are given the frames are written there as parquet.
+    Each frame has one row per subject with EMBED_DIM embedding columns (ts000..),
+    the wearable frame indexed by file stem (Basis_NNN) and the CGM frame by
+    subjectId. If wear_out/cgm_out are given, the frames are written there as parquet.
     """
     if model is None:
         model = load_ts_model(name)

@@ -1,16 +1,12 @@
-"""Model the wide S4 omics block (12k analytes) against real SSPG labels, HONESTLY.
+"""Model the wide S4 omics block (12k analytes) against real SSPG labels, honestly.
 
-Attaches the S8 SSPG target to the S4 patients (join S4 Zcode -> S8 SubjectID),
-then runs the leak-safe cross-validated reduction+model (omics_highdim_cv) with
-Ridge and XGBoost. For each it also runs the LEAKY all-rows reduction so the
-optimism gap is reported honestly side by side.
+Attaches the S8 SSPG target to the S4 patients (join S4 Zcode to S8 SubjectID) and runs the
+leak-safe cross-validated reduction+model (omics_highdim_cv) with Ridge and XGBoost,
+reporting the leaky all-rows reduction alongside so the optimism gap is visible. Real data
+only: missing inputs skip the run, nothing is fabricated. Writes
+reports/s4_highdim_results.csv.
 
-Real data only: if an input file is missing, the run is SKIPPED and noted; no
-numbers are fabricated. Run from the repo root:
     python scripts/run_s4_model.py
-
-Outputs:
-    reports/s4_highdim_results.csv   one row per (model, mode) with real metrics
 """
 import sys
 from pathlib import Path
@@ -33,20 +29,14 @@ MODELS = ("ridge", "xgboost")
 
 
 def load_s4_with_sspg():
-    """Return (X, y, n_labeled, n_crosswalk), oriented S4 rows with an SSPG label.
+    """Return (X, y, n_labeled, n_crosswalk): oriented S4 rows carrying an SSPG label.
 
-    Join path (as named in the S4 task): the crosswalk
-    (cgm_omics_shared_patients.csv) is the site-code<->Zcode spine that ties S4
-    patients to a target. The crosswalk carries an SSPG column for 19 of the S4
-    patients; the S8 panel (omics_S8_sspg_clean.csv) is the authoritative SSPG
-    source keyed on the same Zcode (SubjectID). We take SSPG from the crosswalk
-    where present and fill the remaining S4 patients from S8 (the two agree
-    exactly on the 19 they share), then keep every S4 patient that ends up with
-    a non-null SSPG. This honors the crosswalk as the join spine while not
-    discarding the S8-only labels the crosswalk simply never listed.
-
-    n_crosswalk is the crosswalk-only coverage (SSPG present in the crosswalk);
-    n_labeled is the crosswalk-spine + S8-fill coverage actually modeled.
+    The crosswalk (cgm_omics_shared_patients.csv) is the site-code/Zcode spine and carries
+    SSPG for 19 S4 patients; the S8 panel (omics_S8_sspg_clean.csv) is the authoritative
+    source on the same Zcode. We take SSPG from the crosswalk where present and fill the rest
+    from S8 (they agree on the 19 they share), then keep every S4 patient with a non-null
+    SSPG. n_crosswalk is crosswalk-only coverage; n_labeled is the crosswalk + S8-fill
+    coverage actually modeled.
     """
     s4 = pd.read_excel(S4_XLSX, sheet_name="S4_HealthyIQR")
     X, _sites, _z = hd.orient(s4)                          #patients x analytes, indexed by Zcode

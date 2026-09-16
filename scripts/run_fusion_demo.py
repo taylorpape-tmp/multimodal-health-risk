@@ -1,36 +1,16 @@
 """End-to-end fusion demonstration for the HURDLE multimodal diabetes-risk project.
 
-HONEST FRAMING
---------------
-The four public datasets are different people. Omics and CGM share 22 real
-patients through the crosswalk (19 of them carry an SSPG label); wearable and
-retinal imaging share no patients with anyone. A real all-four-modalities
-matrix therefore does not exist in public data. This script builds a VIRTUAL
-cohort of synthetic patients that carry all four modalities at once, so the
-fusion pipeline can be exercised end to end. Truth is always external to the
-model: the hidden latent risk z for the virtual cohort, and measured SSPG for
-the real 22. The three controls (best single modality, fusion-on-scrambled,
-additive baseline) prove the fusion does real cross-modal work rather than
-re-learning a circular sum.
+The four public datasets are different people (omics and CGM share 22 real patients, 19
+with an SSPG label; wearable and retinal share no one), so no real all-four-modality
+matrix exists. This builds a virtual cohort of synthetic patients carrying all four
+modalities so the fusion pipeline can run end to end, with truth kept external (the hidden
+latent risk z, and measured SSPG for the real 22). The omics coupling is calibrated to the
+real linked omics block; wearable and imaging keep default loadings (imaging stays a
+placeholder until the retinal CNN is trained). Three controls (best single modality,
+fusion-on-scrambled, additive baseline) show the fusion does real cross-modal work rather
+than re-learning a sum.
 
-CALIBRATION
------------
-The omics coupling is calibrated to the real linked omics block
-(build_feature_matrix on the cleaned S8/SSPG table, restricted to the shared
-crosswalk patients) so the synthetic coupling reflects real signal structure.
-Wearable and imaging keep their default loadings because no real linked block
-exists for them yet, imaging stays a synthetic placeholder until the retinal
-CNN is trained on AWS and its embeddings are wired in through imaging_bridge.
-
-FIGURE CAPTION (baked in)
--------------------------
-R2 of the fused model against the hidden latent truth, next to the best single
-modality, the same fusion run on a row-scrambled (decoupled) cohort, and a
-hand-summed additive baseline. Fusion clearing the single-modality floor and
-the additive baseline while the scrambled control collapses is the evidence
-that the model captures cross-modal interaction, not addition.
-
-Run from the repo root:  python scripts/run_fusion_demo.py
+    python scripts/run_fusion_demo.py
 """
 import json
 import sys

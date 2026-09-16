@@ -1,34 +1,17 @@
-"""Virtual-cohort generator for the multimodal fusion demonstration.
+"""Virtual-cohort generator for the multimodal fusion demo.
 
-THE HONEST FRAMING
-------------------
-The four public datasets are different people. Omics and CGM share 22 real
-patients (via the crosswalk); wearable and retinal imaging share no patients
-with anyone. So a real all-four-modalities-per-patient matrix does not exist in
-public data. This module constructs a VIRTUAL cohort, synthetic patients that
-carry all four modalities at once, so the fusion pipeline can be demonstrated
-end to end. It is explicitly synthetic and never presented as real individuals.
+The four public datasets are different people (omics and CGM share 22 patients
+via the crosswalk; wearable and imaging share none), so no real
+all-four-modalities-per-patient matrix exists. This builds a synthetic cohort
+whose patients carry all four modalities at once, purely to demonstrate the
+pipeline end to end, and it is never presented as real individuals.
 
-WHY IT IS NOT CIRCULAR
-----------------------
-The naive approach (invent a risk score by summing the modalities, then train a
-model to predict it) is circular: the model just re-learns the sum. Instead:
-
-  1. draw a hidden latent risk z ~ N(0,1) for each synthetic patient FIRST
-  2. generate every modality's features FROM z through noisy, calibrated maps
-     (high z -> more insulin-resistant omics, more glucose variability, worse
-     retinal grade), noisy and nonlinear so no single modality reveals z
-  3. the model sees ONLY the generated features, never z
-  4. truth = z, which was set before any feature existed and is hidden
-
-The model must FUSE the noisy modalities to recover z, a genuine task. The
-coupling strengths are calibrated to the real 22 where cross-modal correlation
-can actually be measured, so the synthetic patients are not arbitrary.
-
-Controls that prove fusion does real work live in fusion.py:
-  - ablation: fusion must beat the best single modality
-  - scramble: break the shared-z coupling -> the advantage must vanish
-  - additive baseline: a hand-summed score is the baseline to beat, never a label
+It avoids the circular trap of summing the modalities into a target the model
+then re-learns. Instead a hidden latent risk z ~ N(0,1) is drawn first, every
+modality is generated from z through noisy nonlinear maps, and the model sees
+only those features (never z). Recovering z therefore requires genuinely fusing
+the modalities. Coupling strengths are calibrated to the real 22, and the
+controls that check fusion does real work live in fusion.py.
 """
 from dataclasses import dataclass, field
 
@@ -67,8 +50,8 @@ class VirtualCohort:
 def generate(n=300, modalities=DEFAULT_MODALITIES, seed=0, coupling=1.0):
     """Generate a virtual cohort of n synthetic patients.
 
-    coupling scales every modality's loading at once; coupling=0 reproduces the
-    scramble control (features independent of z). Returns a VirtualCohort.
+    coupling scales every modality's loading at once; coupling=0 makes the
+    features independent of z, matching the scramble control.
     """
     rng = np.random.default_rng(seed)
     z = rng.normal(size=n)                      #hidden truth, drawn FIRST
@@ -92,11 +75,10 @@ def generate(n=300, modalities=DEFAULT_MODALITIES, seed=0, coupling=1.0):
 
 
 def scramble(cohort, seed=0):
-    """Break the shared-z coupling: independently permute the ROWS of each
-    modality block. Column structure within a modality is preserved, but the
-    modalities no longer share a patient's z -> fusion should gain nothing.
-    Truth z stays aligned to nothing in particular, so we also return shuffled z
-    for the block that keeps its own rows. Used as the negative control.
+    """Negative control: independently permute each modality block's rows.
+
+    Within-modality column structure is kept, but the modalities no longer share
+    a patient's z, so fusion should gain nothing over a single modality.
     """
     rng = np.random.default_rng(seed)
     X = cohort.X.copy()
@@ -110,15 +92,12 @@ def scramble(cohort, seed=0):
 def calibrate_from_real(real_frames, base_modalities=DEFAULT_MODALITIES):
     """Set each modality's loading from the real cross-modal signal.
 
-    real_frames maps modality name -> a (subjects x features) DataFrame for the
-    REAL linked patients (e.g. the 22 omics+CGM). We measure how strongly each
-    modality's leading principal direction correlates with a shared component
-    (here approximated by the first singular vector of the concatenated,
-    standardized real blocks) and set the loading proportional to that. This
-    keeps the synthetic coupling in the range actually observed rather than
-    invented. Modalities with no real linked data keep their default loading.
-
-    Returns a new tuple of ModalitySpec with calibrated loadings.
+    real_frames maps modality name to a (subjects x features) DataFrame for the
+    real linked patients (e.g. the 22 omics+CGM). Each modality's loading is set
+    proportional to how strongly its features correlate with a shared component
+    (the first singular vector of the concatenated standardized blocks), keeping
+    the synthetic coupling in the observed range. Modalities with no real data
+    keep their default loading. Returns a new tuple of ModalitySpec.
     """
     #build a shared latent proxy from the concatenated standardized real blocks
     aligned = [f for f in real_frames.values() if f is not None and len(f)]

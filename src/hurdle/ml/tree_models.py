@@ -1,9 +1,9 @@
-"""Tree-ensemble model wrappers (RandomForest, XGBoost, LightGBM), ported from
-dom_study. These are the trees-win-on-wide-small-n workhorses for omics.
+"""Tree-ensemble wrappers (RandomForest, XGBoost, LightGBM), ported from
+dom_study. These tend to do well on wide, small-n omics data.
 
-family='tree' -> default transform is 'none' (trees are scale-invariant, so
-scaling the features would be wasted work). param_grid keys use the 'model__'
-pipeline-step prefix; _fold_meta reads the estimator from the 'model' step.
+family='tree' means the default transform is 'none', since trees are
+scale-invariant. param_grid keys use the 'model__' pipeline-step prefix, and
+_fold_meta reads the estimator from the 'model' step.
 """
 import warnings
 

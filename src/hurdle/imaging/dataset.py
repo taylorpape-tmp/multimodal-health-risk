@@ -1,17 +1,14 @@
 """RetinaMNIST loader for the retinal-imaging modality.
 
 RetinaMNIST is diabetic-retinopathy grading: RGB fundus crops with an ordinal
-label 0-4 (0 = no DR, 4 = proliferative). The grades are imbalanced (grade 0 is
-~45% of train, grade 4 ~6%), so this module also computes sum-normalised class
+label 0 to 4 (0 = no DR, 4 = proliferative). The grades are imbalanced (grade 0
+is ~45% of train, grade 4 ~6%), so the loader also computes sum-normalised class
 weights for a weighted loss.
 
-The .npz ships two resolutions (28px and 224px) with the same six arrays:
-  {train,val,test}_images  (N, H, W, 3) uint8 in [0, 255]
-  {train,val,test}_labels  (N, 1)       uint8 in {0..4}
-
-torch is optional: when it is installed, load_retinamnist can hand back a
-torch Dataset per split; when it is absent, the loader still returns the numpy
-arrays and the class weights so the rest of the pipeline degrades gracefully.
+The .npz ships two resolutions (28px and 224px), each with images (N, H, W, 3)
+uint8 and labels (N, 1) uint8 in {0..4} for train/val/test. torch is optional:
+when present, load_retinamnist can build a torch Dataset per split; when absent,
+it still returns the numpy arrays and class weights.
 """
 from dataclasses import dataclass, field
 
@@ -37,11 +34,10 @@ def _torch_available():
 
 
 def compute_class_weights(labels, num_classes=NUM_CLASSES):
-    """Inverse-frequency class weights, sum-normalised to num_classes.
+    """Inverse-frequency class weights, rescaled to sum to num_classes.
 
-    weight_c = (1 / count_c), rescaled so the weights sum to num_classes (so an
-    all-equal distribution gives all-ones, matching an unweighted loss). Classes
-    absent from `labels` get weight 0 rather than an infinite weight.
+    An all-equal distribution gives all-ones (matching an unweighted loss), and
+    classes absent from `labels` get weight 0 rather than infinity.
     """
     labels = np.asarray(labels).ravel().astype(int)
     if labels.min() < 0 or labels.max() >= num_classes:
@@ -57,11 +53,10 @@ def compute_class_weights(labels, num_classes=NUM_CLASSES):
 
 @dataclass
 class RetinaMNISTData:
-    """Container for the three splits plus derived class weights.
+    """The three splits plus class weights.
 
-    Images are (N, H, W, 3) uint8; labels are 1-D int arrays in {0..4}. The
-    class weights are computed from the TRAIN split only (val/test never inform
-    the loss weighting).
+    Images are (N, H, W, 3) uint8; labels are 1-D int arrays in {0..4}. Class
+    weights come from the train split only, so val/test never inform the loss.
     """
     resolution: int
     train_images: np.ndarray
@@ -88,17 +83,10 @@ class RetinaMNISTData:
 def load_retinamnist(npz_path, resolution):
     """Load a RetinaMNIST .npz and return a RetinaMNISTData container.
 
-    Parameters
-    ----------
-    npz_path : str | os.PathLike
-        Path to retinamnist.npz (28px) or retinamnist_224.npz (224px).
-    resolution : int
-        Expected image side length (28 or 224); validated against the file so a
-        path/resolution mismatch fails loudly instead of silently.
-
-    Class weights are computed from the train split. torch is NOT required; the
-    returned container carries numpy arrays and can build a torch Dataset later
-    via .torch_dataset(...) only when torch is installed.
+    resolution (28 or 224) is validated against the file so a path/resolution
+    mismatch fails loudly. Class weights come from the train split. torch is not
+    required; the container carries numpy arrays and can build a torch Dataset
+    later via .torch_dataset(...) when torch is installed.
     """
     with np.load(npz_path) as z:
         missing = [k for s in _SPLITS
@@ -144,9 +132,9 @@ class RetinaMNIST:
     """torch Dataset over one RetinaMNIST split.
 
     Yields (image, label) where image is a float32 CHW tensor scaled to [0, 1]
-    (imagenet-normalised when normalize=True) and label is a long scalar. This
-    class only constructs when torch is installed; a clear ImportError otherwise
-    so a torch-free environment fails at Dataset-build time, not at import time.
+    (imagenet-normalised when normalize=True) and label is a long scalar. It
+    only constructs when torch is installed, raising a clear ImportError
+    otherwise so a torch-free environment fails at build time, not import time.
     """
 
     def __init__(self, images, labels, normalize=True):

@@ -1,11 +1,11 @@
 """Bridge the real retinal CNN into the fusion layer.
 
 train_imaging.py exports per-image embeddings (models/imaging_embeddings.npz).
-This module turns those raw embeddings (e.g. 2048-dim for ResNet-50) into a
-compact imaging feature block and uses their statistics to anchor the virtual
-cohort's imaging modality, so the imaging block is driven by the REAL CNN, not
-a purely synthetic draw. The per-patient join remains virtual (RetinaMNIST is
-anonymized and shares no patients with omics/CGM), and that is stated plainly.
+This turns those raw embeddings (e.g. 2048-dim for ResNet-50) into a compact
+imaging feature block and uses their statistics to anchor the virtual cohort's
+imaging modality, so it's driven by the real CNN rather than a synthetic draw.
+The per-patient join stays virtual, since RetinaMNIST is anonymized and shares
+no patients with the omics or CGM data.
 """
 import numpy as np
 import pandas as pd
@@ -22,9 +22,10 @@ def load_embeddings(npz_path, split="train"):
 
 
 def reduce_embeddings(emb, n_components=6, seed=0):
-    """Standardize then PCA-reduce raw CNN embeddings to n_components imaging
-    features. Returns (reduced matrix, fitted scaler, fitted pca) so the same
-    transform can be reapplied to other splits.
+    """Standardize then PCA-reduce raw CNN embeddings to n_components features.
+
+    Returns (reduced matrix, fitted scaler, fitted pca) so the same transform
+    can be reapplied to other splits.
     """
     scaler = StandardScaler().fit(emb)
     z = scaler.transform(emb)
@@ -43,9 +44,9 @@ def imaging_features_frame(npz_path, n_components=6, split="train", seed=0):
 
 def real_frames_with_imaging(omics_df=None, cgm_df=None, imaging_npz=None,
                              n_components=6, split="train", seed=0):
-    """Assemble the real_frames dict for virtual_cohort.calibrate_from_real,
+    """Build the real_frames dict for virtual_cohort.calibrate_from_real,
     including the real CNN imaging block when an embeddings file is given.
-    Modalities that are None are simply omitted (their loading stays default).
+    Modalities passed as None are omitted (their loading stays default).
     """
     frames = {}
     if omics_df is not None:

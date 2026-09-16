@@ -1,17 +1,11 @@
-"""Federated learning as a compact honest simulation, numpy/sklearn only.
+"""Federated learning as a compact simulation (numpy/sklearn only).
 
-FedAvg (McMahan et al. 2017): each site trains a local model on its own patients
-and shares only model parameters; the server aggregates them by a sample-size
-weighted average. Raw patient rows never leave a site. This module simulates the
-protocol on the real omics patients by partitioning them across n_clients sites,
-so the utility numbers are grounded in real data, not a toy.
-
-The local model is a plain logistic regression (IS/IR classification) or ridge
-regression (SSPG). FedAvg on parameters is exact for a linear model only when
-every client shares an identical feature transform; we therefore fit a single
-StandardScaler on the pooled TRAIN split once and hand it to every client, so the
-comparison isolates the effect of federating the FIT, not of differing scalers.
-This is a standard simplification and is stated so no stronger claim is implied.
+FedAvg (McMahan et al. 2017): each site trains a local logistic or ridge model on
+its own patients and shares only parameters, which the server averages weighted by
+sample size, so raw rows never leave a site; here the real omics patients are
+partitioned across n_clients sites. One StandardScaler fit on the pooled train split
+is shared with every client, so the comparison isolates the effect of federating the
+fit rather than differing scalers.
 """
 import numpy as np
 from sklearn.linear_model import LogisticRegression, Ridge
@@ -22,12 +16,9 @@ from sklearn.preprocessing import StandardScaler
 def federated_average(client_params, client_sizes):
     """Sample-size weighted average of per-client parameter vectors (FedAvg step).
 
-    client_params: list of equal-length 1-D arrays (each site's flattened params).
-    client_sizes:  list of local sample counts n_k used as aggregation weights.
-
-    Returns sum_k (n_k / sum n_k) * params_k. Sites contributing more patients pull
-    the global model proportionally harder, which is the FedAvg weighting. Only
-    parameters are combined here; no raw data is passed in.
+    Takes a list of equal-length flattened parameter arrays and a list of local
+    sample counts, and returns sum_k (n_k / sum n_k) * params_k, so sites with more
+    patients pull the global model harder. Only parameters are combined, no raw data.
     """
     if len(client_params) == 0:
         raise ValueError("need at least one client")
@@ -76,11 +67,11 @@ def _predict_with(task, params, Xs):
 
 
 def central_logistic(X, y, task="classification", test_frac=0.3, seed=0):
-    """Train one central model on the pooled TRAIN split, score on the held-out test.
+    """Train one central model on the pooled train split, score on the held-out test.
 
-    Baseline for the federated comparison: this is the utility achievable when all
-    patient rows are pooled at one site. Returns (metric, params, scaler, split)
-    where metric is accuracy (classification) or R^2 (regression) on the test split.
+    The baseline for the federated comparison (all rows pooled at one site). Returns
+    (metric, params, scaler, split), where metric is test accuracy (classification)
+    or R^2 (regression).
     """
     return _fit_central(X, y, task, test_frac, seed)
 
@@ -111,24 +102,13 @@ def _score(task, y_true, y_pred):
 
 def simulate_federated_training(X, y, n_clients=4, rounds=5, task="classification",
                                 test_frac=0.3, seed=0):
-    """FedAvg over the real patients vs a central model on the same TRAIN/TEST split.
+    """FedAvg over the real patients vs a central model on the same train/test split.
 
-    Protocol per round:
-      1. broadcast the current global params to every site
-      2. each site fits a local model on ITS OWN train patients (warm-started at the
-         broadcast params where the estimator supports it), never sharing rows
-      3. the server FedAvg-aggregates the local params, weighted by local n
-    After `rounds` rounds the aggregated model is scored on the held-out test split
-    and compared to central_logistic on the identical split.
-
-    A single StandardScaler fit on the pooled TRAIN split is shared with all sites
-    (see module docstring): this isolates the effect of federating the fit. The
-    train patients are partitioned disjointly across n_clients sites, so no row is
-    ever seen by more than one site or by the server.
-
-    Returns a dict with central_metric, federated_metric, gap (central-federated),
-    per_round_metric (test metric after each round), n_clients, rounds, task, and
-    client_sizes. Real numbers on the supplied matrix.
+    Each round broadcasts the global params, has every site fit locally on its own
+    disjoint train patients, and FedAvg-aggregates weighted by local n; after `rounds`
+    the aggregated model is scored on the held-out test and compared to
+    central_logistic on the identical split. Returns a dict with central_metric,
+    federated_metric, gap, per_round_metric, n_clients, rounds, task, and client_sizes.
     """
     A = np.asarray(X, dtype=float)
     yv = np.asarray(y).ravel()

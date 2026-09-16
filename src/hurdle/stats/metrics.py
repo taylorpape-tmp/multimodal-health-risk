@@ -1,8 +1,8 @@
-"""metric callables with a uniform metric_fn(y_true, y_pred) -> float signature.
+"""Metric callables with a uniform metric_fn(y_true, y_pred) -> float signature.
 
-these wrap the sklearn/scipy metrics so bootstrap_ci and permutation_test can
-take any of them as a plug-in. classification metrics accept probability scores
-and threshold at 0.5 for the hard-label metrics (f1).
+Thin wrappers over sklearn/scipy metrics so bootstrap_ci and permutation_test can
+plug in any of them. Classification metrics accept probability scores and threshold
+at 0.5 for hard-label metrics like f1.
 """
 import numpy as np
 from scipy.stats import pearsonr

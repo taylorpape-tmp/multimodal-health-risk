@@ -1,17 +1,13 @@
 """Fine-tune the retinal CNN on RetinaMNIST and export embeddings for fusion.
 
-Designed to run on the AWS GPU instance (infra/aws_gpu_training.tf) but falls
-back to CPU. Two outputs:
-  1. a fine-tuned checkpoint (models/imaging_<backbone>.pt)
-  2. per-image embeddings for train/val/test (models/imaging_embeddings.npz) --
-     these are the REAL feature vectors that anchor the fusion imaging block
+Built for the AWS GPU instance (infra/aws_gpu_training.tf) but falls back to CPU. Writes a
+fine-tuned checkpoint (models/imaging_<backbone>.pt) and per-image train/val/test embeddings
+(models/imaging_embeddings.npz), the real feature vectors that anchor the fusion imaging
+block. On AWS the wrapper (scripts/aws_train.sh) pulls data from S3, runs this, pushes
+models/ back, then terminates the instance.
 
-Usage (from repo root):
-  python scripts/train_imaging.py --backbone resnet50 --epochs 15 --res 224
-  python scripts/train_imaging.py --backbone retfound --epochs 20 --res 224  # GPU
-
-On AWS the wrapper (scripts/aws_train.sh) pulls data from S3, runs this, and
-pushes models/ back to S3, then the instance is terminated.
+    python scripts/train_imaging.py --backbone resnet50 --epochs 15 --res 224
+    python scripts/train_imaging.py --backbone retfound --epochs 20 --res 224  # GPU
 """
 import argparse
 import sys

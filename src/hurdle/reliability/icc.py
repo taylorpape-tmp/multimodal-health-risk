@@ -1,48 +1,11 @@
-"""Intraclass correlation (ICC) for inter-MODALITY reliability.
+"""Intraclass correlation (ICC) for inter-modality reliability.
 
-THE FRAMING (re-used from psychometrics)
-----------------------------------------
-The intraclass correlation coefficient is the standard psychometric measure of
-inter-rater / inter-observer reliability: several raters each score the same set
-of subjects, and ICC quantifies how much of the total variance is attributable
-to real between-subject differences rather than to rater disagreement. It is the
-same statistic used to establish inter-observer agreement on subjective ratings
-(e.g. dominance ratings scored by multiple observers).
-
-Here the k 'raters' are the k data MODALITIES of the fusion pipeline. Each
-modality produces a noisy read of the same person's hidden latent risk z. A high
-ICC means the modalities corroborate one another on the same subject's risk; a
-low ICC means they diverge.
-
-CONVENTIONS (Shrout & Fleiss, 1979, Psychological Bulletin 86(2):420-428)
-------------------------------------------------------------------------
-Shrout & Fleiss define three ICC models, each in single-measure (,1) and
-average-measure (,k) forms:
-
-  ICC(1,1) one-way random, each subject rated by a different set
-  ICC(2,1) two-way random, same raters, raters drawn from a population,
-                                     ABSOLUTE AGREEMENT (systematic rater bias
-                                     counts as disagreement)
-  ICC(3,1) two-way mixed, same fixed raters, CONSISTENCY only
-
-This module implements the two-way random / absolute-agreement family, i.e.
-ICC(2,1) (single measures) and ICC(2,k) (the reliability of the k-modality
-mean). This is the correct model when the modalities are exchangeable noisy
-sensors of the same latent risk and we care about absolute agreement, not merely
-whether they rank subjects in the same order.
-
-Point estimates (Shrout & Fleiss 1979, eqs. for Case 2):
-  ICC(2,1) = (MSR - MSE) / (MSR + (k-1)*MSE + (k/n)*(MSC - MSE))
-  ICC(2,k) = (MSR - MSE) / (MSR + (MSC - MSE)/n)
-
-with, from the two-way ANOVA on the (n subjects x k raters) matrix:
-  MSR = between-subjects (rows) mean square,  df = n-1
-  MSC = between-raters   (cols) mean square,  df = k-1
-  MSE = residual (error) mean square,         df = (n-1)(k-1)
-
-F-based confidence intervals follow McGraw & Wong (1996, Psychological Methods
-1(1):30-46), Table 7, cases ICC(A,1) and ICC(A,k), the exact CI companion to
-the Shrout & Fleiss absolute-agreement estimators.
+ICC is the standard psychometric measure of inter-rater reliability; here the k
+'raters' are the k modalities of the fusion pipeline, each a noisy read of the same
+person's latent risk, so a high ICC means the modalities corroborate one another.
+Implements the two-way random, absolute-agreement family from Shrout & Fleiss (1979)
+Case 2 (ICC(2,1) single measures, ICC(2,k) the k-modality mean) with F-based CIs from
+McGraw & Wong (1996).
 """
 from dataclasses import dataclass
 
@@ -143,29 +106,13 @@ def _ci_two_way_absolute(n, k, msr, msc, mse, r, average, confidence):
 
 
 def icc(ratings, icc_type="ICC(2,1)", confidence=0.95):
-    """Intraclass correlation for an (n_subjects, k_raters) matrix.
+    """Intraclass correlation for an (n_subjects, k_raters) matrix whose columns are
+    raters/modalities.
 
-    Parameters
-    ----------
-    ratings : array-like, shape (n_subjects, k_raters)
-        Each row is a subject, each column a rater / modality. In the HURDLE
-        setting the columns are the per-modality risk signals for the same
-        subjects.
-    icc_type : {"ICC(2,1)", "ICC(2,k)"}
-        Two-way random, absolute agreement. "ICC(2,1)" is single-measure
-        reliability (how much one modality agrees with another); "ICC(2,k)" is
-        the reliability of the mean of all k modalities.
-    confidence : float
-        Nominal coverage of the F-based CI (default 0.95).
-
-    Returns
-    -------
-    ICCResult
-        Point estimate, F-based CI, and the ANOVA mean squares.
-
-    Notes
-    -----
-    Shrout & Fleiss (1979) Case 2 estimators; McGraw & Wong (1996) CI.
+    "ICC(2,1)" is single-measure reliability (how much one modality agrees with
+    another) and "ICC(2,k)" is the reliability of the k-modality mean, both two-way
+    random and absolute agreement. Returns an ICCResult with the point estimate,
+    F-based CI, and ANOVA mean squares.
     """
     valid = {"ICC(2,1)", "ICC(2,k)"}
     if icc_type not in valid:

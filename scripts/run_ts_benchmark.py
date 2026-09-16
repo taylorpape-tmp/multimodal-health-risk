@@ -1,30 +1,16 @@
-"""Honest benchmark: hand-crafted time-series features vs foundation-model
-embeddings vs both, under the same leave-one-out Ridge harness.
+"""Benchmark hand-crafted time-series features vs foundation-model embeddings vs both, under
+one leave-one-out Ridge harness.
 
-Two modalities, two DIFFERENT kinds of target, labelled honestly:
+Two modalities with two different kinds of target. CGM is a real clinical result: for the 19
+Hall-2018 subjects that link to the omics cohort and carry a measured SSPG, we regress SSPG
+on the hand-crafted CGM variability features, the MOMENT embedding of the raw trace, and
+both concatenated. Wearable is a representation-quality proxy, not a diabetes result: the 43
+Basis-watch subjects have no metabolic label, so we hold out the hand-crafted cosinor HR
+amplitude and check how well each feature set predicts it, i.e. whether the embedding
+captures the known circadian structure. Both use RidgeModel under LOO (RidgeCV self-tunes
+alpha) and report R2, MAE, RMSE, Pearson, Spearman; outputs go to reports/ts_benchmark.csv
+and reports/ts_benchmark.png.
 
-  CGM  (real clinical target).  57 Hall-2018 CGM subjects; 19 of them link to
-       the omics cohort by site code and carry a measured SSPG (steady-state
-       plasma glucose, the gold-standard insulin-resistance readout). We
-       regress SSPG on: (a) the hand-crafted CGM variability features
-       (MAGE/CONGA/MODD/...), (b) the MOMENT embedding of the raw glucose
-       trace, (c) both concatenated. This is a genuine diabetes-risk signal.
-
-  WEARABLE (representation-quality proxy -- NOT a diabetes result).  The 43
-       Basis-watch subjects (SubjectN) are DISJOINT from the omics Zcodes, so
-       no metabolic label exists for them. Inventing one would be dishonest.
-       Instead we ask a self-supervised question: does the foundation-model
-       embedding of the raw HR series CAPTURE known circadian structure? We
-       hold out the hand-crafted cosinor HR amplitude as the target and see
-       how well each feature set predicts it under LOO. High skill means the
-       embedding encodes the circadian signal the hand-crafted feature
-       measures -- a representation-quality check, explicitly not a risk score.
-
-Both sections use RidgeModel under leave-one-out CV (param_grid=None, so
-RidgeCV self-tunes alpha inside each fold). Metrics: R2, MAE, RMSE, Pearson,
-Spearman. Outputs reports/ts_benchmark.csv and reports/ts_benchmark.png.
-
-Run from the repo root (after building the embedding parquets):
     python scripts/run_ts_benchmark.py
 """
 import sys

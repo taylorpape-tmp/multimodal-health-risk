@@ -1,11 +1,9 @@
-"""evaluate_model: run the real LOO cross-validation via MLModel and attach
-uncertainty (bootstrap CIs) and significance (label-permutation p-values).
+"""Run LOO cross-validation via MLModel with bootstrap CIs and label-permutation
+p-values.
 
-the permutation respects the CV structure: predict_fn rebuilds the model frame
-with the permuted labels as the target and reruns the FULL leave-one-out, so the
-permutation sits outside the CV and cannot leak. all metrics share one
-permutation loop (one CV rerun per permutation, not one per metric), which is
-both cheaper and gives a single coherent null.
+The permutation reruns the full leave-one-out on the permuted labels, so it sits
+outside the CV and cannot leak. All metrics share one permutation loop (one CV
+rerun per permutation), which is cheaper and gives a single coherent null.
 """
 import numpy as np
 import pandas as pd
@@ -47,14 +45,12 @@ def _shared_permutation_pvalues(y, predict_fn, metric_list, observed, n_perm, se
 
 def evaluate_model(model_cls, X, y, task, groups=None, target_col="target",
                    param_grid="default", n_boot=2000, n_perm=200, seed=0):
-    """run LOO for model_cls on (X, y) and return a dict of metrics with 95%
-    bootstrap CIs and a label-permutation p-value per metric.
+    """Run LOO for model_cls on (X, y) and return per-metric 95% bootstrap CIs and
+    label-permutation p-values.
 
-    X is a DataFrame, y a 1d array/Series, task 'regression' | 'classification'.
-    param_grid is passed through to the model (use a tiny grid in tests to keep
-    tuned models fast). n_perm reruns the full CV each time, so keep it modest.
-
-    returns {'name', 'task', 'n', 'preds', <metric>: {'point','lo','hi','p'}}.
+    X is a DataFrame, y a 1d array/Series, task 'regression' or 'classification', and
+    n_perm reruns the full CV each time so keep it modest. Returns
+    {'name', 'task', 'n', 'preds', <metric>: {'point','lo','hi','p'}}.
     """
     X = pd.DataFrame(X).reset_index(drop=True)
     y = np.asarray(y)

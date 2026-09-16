@@ -1,23 +1,11 @@
 """Model-based feature attribution for the omics -> SSPG regression.
 
-The consensus panel (reports/consensus_panel_sspg.csv) ranks analytes by how
-often the four-family nested selector re-picks them across leave-one-out folds.
-That is a *selection-stability* signal. This module adds an independent,
-model-based *attribution* layer on top of it:
-
-  fit_and_explain()  -> fits one XGBoost regressor on the full real S8 matrix and
-                        computes exact TreeExplainer SHAP values. Returns a
-                        per-feature mean(|SHAP|) ranking (global importance), the
-                        raw SHAP value matrix (for beeswarm / bar plots), XGBoost's
-                        native gain-based feature_importances_, and the fitted model.
-  compare_rankings() -> joins SHAP mean|value|, native gain, and consensus
-                        selection frequency for the top analytes, so agreement
-                        across three independent methods can be shown directly.
-
-Everything here operates on the real matrix produced by
-hurdle.features.omics.build_feature_matrix; nothing is synthetic. SHAP's
-TreeExplainer is exact for tree ensembles (no sampling), so mean(|SHAP|) is a
-deterministic function of the fitted model.
+Where the consensus panel measures selection stability, this adds a model-based
+attribution layer: fit_and_explain fits one XGBoost regressor and computes exact
+TreeExplainer SHAP values, returning a mean(|SHAP|) ranking, the raw SHAP matrix,
+native gain importances, and the model. compare_rankings joins SHAP, native gain, and
+consensus selection frequency so agreement across the three methods can be shown
+directly.
 """
 from pathlib import Path
 
@@ -44,7 +32,7 @@ _XGB_DEFAULTS = {
 
 
 def _fit_xgboost(X, y, params=None):
-    """Fit one XGBoost regressor on the full matrix (no CV: this is the model we
+    """Fit one XGBoost regressor on the full matrix (no CV; this is the model we
     explain, not a performance estimate)."""
     cfg = dict(_XGB_DEFAULTS)
     if params:
@@ -55,18 +43,12 @@ def _fit_xgboost(X, y, params=None):
 
 
 def fit_and_explain(X, y, model="xgboost", params=None):
-    """Fit a tree model on (X, y) and attribute the prediction with SHAP.
+    """Fit a tree model on (X, y) and attribute predictions with SHAP.
 
-    X: DataFrame (or array) of analytes; if a DataFrame, its columns name the
-       features. y: continuous SSPG target. model: only 'xgboost' is supported.
-
-    Returns a dict:
-      shap_ranking     DataFrame(analyte, mean_abs_shap, rank_shap) sorted desc
-      gain_ranking     DataFrame(analyte, native_gain, rank_gain)   sorted desc
-      shap_values      np.ndarray (n_samples, n_features) raw SHAP values
-      feature_names    list[str] column order matching shap_values
-      model            the fitted estimator
-      X                the feature matrix actually fitted (as DataFrame)
+    X is a DataFrame (or array) of analytes, y the continuous SSPG target; only
+    'xgboost' is supported. Returns a dict with shap_ranking and gain_ranking
+    DataFrames, the raw shap_values matrix, feature_names, the fitted model, and the
+    feature matrix X.
     """
     if model != "xgboost":
         raise ValueError(f"unsupported model {model!r}; only 'xgboost' is implemented")
@@ -134,14 +116,10 @@ def _load_consensus(consensus_csv):
 def compare_rankings(shap_rank, gain_rank, consensus_csv, top_n=20):
     """Join SHAP, native-gain, and consensus rankings for the top analytes.
 
-    shap_rank / gain_rank: the DataFrames returned by fit_and_explain
-    (columns analyte + mean_abs_shap/rank_shap and native_gain/rank_gain).
-    consensus_csv: path to reports/consensus_panel_sspg.csv.
-
-    Returns a DataFrame of the top_n analytes *by SHAP*, each carrying its
-    mean|SHAP|, native gain, consensus selection frequency, and each method's
-    rank. Analytes absent from the consensus file get consensus_freq = NaN
-    (never a fabricated 0). Sorted by rank_shap.
+    Takes the two ranking DataFrames from fit_and_explain and the consensus panel CSV
+    path, and returns the top_n analytes by SHAP with their mean|SHAP|, native gain,
+    consensus frequency, and per-method ranks (sorted by rank_shap). Analytes absent
+    from the consensus file get consensus_freq = NaN, never a fabricated 0.
     """
     con = _load_consensus(consensus_csv)
     merged = (

@@ -1,14 +1,10 @@
 """Base model contract, ported from the dom_study MLModel architecture.
 
-Adaptations for HURDLE:
-  - target column is configurable (SSPG regression, IRIS classification), not
-    hardcoded to dom_z_mean
-  - the cross-validation splitter is pluggable: LeaveOneOut for tiny-n omics,
-    or subject-wise LeaveOneGroupOut when repeated observations share a subject
-  - a task flag ('regression' | 'classification') selects the metric set
-
-A subclass overrides: name, task, param_grid (None = no tuning), _estimator(),
-and optionally _fold_meta() to record per-fold chosen hyperparameters.
+HURDLE changes: the target column is configurable (SSPG regression, IRIS
+classification) rather than hardcoded, the CV splitter is pluggable (LeaveOneOut
+for tiny-n omics, subject-wise LeaveOneGroupOut for repeated observations), and a
+task flag picks the metric set. A subclass overrides name, task, param_grid
+(None = no tuning), _estimator(), and optionally _fold_meta().
 """
 from collections import defaultdict
 

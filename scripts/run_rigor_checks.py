@@ -1,23 +1,12 @@
-"""Nested-CV rigor checks + trivial baselines for the omics -> SSPG model.
+"""Nested-CV rigor checks and trivial baselines for the omics -> SSPG model.
 
-Proves the reported XGBoost SSPG score is not inflated by hyperparameter-selection
-leakage, and that the model beats naive predictors. Real omics data only: if the
-interim csv is missing, the run is SKIPPED and says so (no fabricated numbers).
-
-Two comparisons, one shared outer leave-one-out (LOO) loop (see stats/rigor.py):
-  1. non-nested (leaky) vs nested (honest) pooled-LOO R2, plus the optimism gap.
-     the HONEST, reportable headline number is the NESTED one.
-  2. trivial baselines on the same LOO split: predict-the-training-mean, the tuned
-     model on shuffled features, and on random-noise features. the real model must
-     beat all three.
-
-outputs:
-  reports/rigor_checks.csv               one row per check (check, model, metric, R2, n)
-  reports/rigor_nested_vs_baselines.png  bar chart of the five R2 values
-
-GridSearchCV runs n_jobs=1 (the sandbox blocks joblib process spawn) and the inner
-grid is deliberately small (n_estimators [100,300] x max_depth [2,3]) so nested LOO
-finishes in reasonable time.
+Shows the reported XGBoost SSPG score isn't inflated by hyperparameter-selection leakage
+(non-nested leaky vs nested honest pooled-LOO R2, plus the optimism gap; the nested number
+is the reportable one) and that the model beats naive predictors (training-mean,
+shuffled-feature, and random-noise baselines on the same LOO split). Real omics data only:
+if the interim csv is missing the run is skipped. Writes reports/rigor_checks.csv and
+reports/rigor_nested_vs_baselines.png. GridSearchCV runs n_jobs=1 with a small inner grid
+so nested LOO finishes quickly.
 """
 import sys
 from pathlib import Path

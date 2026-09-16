@@ -1,19 +1,11 @@
 """BigQuery data-engineering layer for the HURDLE store.
 
-Demonstrates warehouse data-engineering technique (not just a load):
-  - ELT layering: raw -> staging -> analytics datasets
-  - partitioned + clustered analytics tables (query pruning)
-  - analytical views: wide PIVOT matrix + multimodal patient view
-  - window-function / CTE analytics
-  - SQL data-quality checks (null, range, referential integrity)
+More than a load: ELT layering (raw to staging to analytics), partitioned and
+clustered tables, PIVOT and multimodal views, window/CTE analytics, and SQL
+data-quality checks. Loads raw from SQLite itself if load_bigquery.py hasn't run,
+and authenticates with Application Default Credentials.
 
-Run after `python scripts/load_bigquery.py` has created the raw tables, or
-standalone (it loads raw from SQLite itself). Auth = Application Default
-Credentials (gcloud auth application-default login). Cost on this ~1.4 MB
-store is within the BigQuery free tier.
-
-Usage:
-  python scripts/bq_data_engineering.py --project hurdle-diabetes --location EU
+    python scripts/bq_data_engineering.py --project hurdle-diabetes --location EU
 """
 import argparse
 import sqlite3

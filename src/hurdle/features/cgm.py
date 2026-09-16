@@ -1,19 +1,9 @@
-"""Continuous-glucose-monitoring variability features (Hall 2018 CGM).
+"""Glucose-variability features from continuous glucose monitoring (Hall 2018).
 
-Per-subject glucose-variability metrics computed from a long-format CGM file
-(5-minute glucose in mg/dL). The standard metric families are:
-
-  dispersion   - mean, SD, CV (=SD/mean*100), IQR
-  excursion    - MAGE (mean amplitude of glycemic excursions > 1 SD)
-  continuity   - CONGA (SD of glucose differences n hours apart), MODD (mean
-                 absolute difference between same-clock-time points 24 h apart)
-  composite    - J-index, GMI (glucose management indicator)
-  time-in-range- TIR (70-180), TAR (>180), TBR (<70), as fractions summing to 1
-  risk         - LBGI / HBGI (Kovatchev low/high blood-glucose index)
-
-Public API:
-  extract_cgm_features(df_one_subject) -> dict   one subject's metric row
-  build_cgm_matrix(path)               -> DataFrame  subjects x features
+Computes the usual per-subject CGM metrics (mean, SD, CV, IQR, MAGE, CONGA,
+MODD, J-index, GMI, time-in-range, and Kovatchev LBGI/HBGI) from a long-format
+5-minute glucose file in mg/dL. Use extract_cgm_features() for one subject or
+build_cgm_matrix() for a subjects x features table.
 """
 import numpy as np
 import pandas as pd
@@ -107,11 +97,11 @@ def _risk_indices(g):
 def extract_cgm_features(df_one_subject, glucose_col="GlucoseValue",
                          time_col="DisplayTime", conga_hours=CONGA_HOURS,
                          tir_low=TIR_LOW, tir_high=TIR_HIGH):
-    """Compute the CGM variability metric row for one subject's glucose trace.
+    """Compute the CGM metric row for one subject's glucose trace.
 
     Returns a dict keyed by FEATURE_ORDER. TIR/TAR/TBR are fractions of valid
-    readings and sum to 1. Difference-based metrics (CONGA/MODD) return NaN only
-    when the trace is shorter than the required lag.
+    readings and sum to 1; CONGA and MODD are NaN when the trace is shorter than
+    the required lag.
     """
     g, t = _clean_series(df_one_subject, glucose_col, time_col)
     n = len(g)
@@ -155,11 +145,10 @@ def _read_cgm(path):
 
 def build_cgm_matrix(path, subject_col="subjectId", glucose_col="GlucoseValue",
                      time_col="DisplayTime", **kwargs):
-    """Read a long-format CGM file and return a subjects x features DataFrame.
+    """Read a long-format CGM file into a subjects x features DataFrame.
 
-    Groups on `subject_col` (e.g. '1636-69-001') and applies
-    extract_cgm_features per subject. The index is the subject id; columns are
-    FEATURE_ORDER.
+    Groups on subject_col and runs extract_cgm_features per subject. Index is the
+    subject id, columns are FEATURE_ORDER.
     """
     df = _read_cgm(path)
     missing = {subject_col, glucose_col} - set(df.columns)

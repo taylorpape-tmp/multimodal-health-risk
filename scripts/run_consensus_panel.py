@@ -1,23 +1,11 @@
-"""Run the four-family nested consensus selector on the REAL omics matrices.
+"""Run the four-family nested consensus selector on the real S8 SSPG omics matrix.
 
-This produces an actual consensus-selected analyte panel from the Stanford
-S8 SSPG regression table (not synthetic data). For every leave-one-out outer
-fold the four selector families (filter/wrapper/embedded/explain) re-vote from
-scratch, a feature is frozen when >= vote_threshold families back it, and we
-report how often each analyte entered the frozen set across all folds.
+For each leave-one-out fold the four selector families (filter, wrapper, embedded,
+explain) re-vote from scratch, a feature freezes once at least vote_threshold families
+back it, and we report how often each analyte entered the frozen set. S9 IRIS is skipped
+because it's a classification target and this selector is regression-only. Explainability
+uses the module's own standardised-OLS-coefficient explainer, since SHAP isn't installed.
 
-S9 IRIS is a binary classification target. run_nested_consensus is a
-regression-only method (Pearson p-values, OLS leave-one-out R^2, LASSO/
-ElasticNet regression, standardised-OLS-coef explain, R^2/MAE/RMSE final
-scoring); it has no classification path, so IRIS is skipped honestly rather
-than forced through a regressor.
-
-SHAP is not installed and the task forbids adding heavy dependencies, so the
-explainability readout for the final panel is the module's own built-in
-standardised-OLS-coefficient explainer (the same mechanism as explain_vote),
-fit once on the full real data over the consensus panel.
-
-Run from the repo root:
     python scripts/run_consensus_panel.py
 """
 import sys
@@ -42,13 +30,11 @@ PANEL_CSV = REPORTS / "consensus_panel_sspg.csv"
 
 
 def standardized_ols_explainer(frame, panel, target_col="target"):
-    """Built-in explainer: standardised OLS coefficients for the final panel.
+    """Standardised OLS coefficients for the final panel, used in place of SHAP.
 
-    This is the module's explain-family mechanism (StandardScaler + OLS via the
-    pseudo-inverse) applied once to the full real data on the consensus panel,
-    used in place of SHAP. Returns a frame of (analyte, std_ols_coef, abs_coef)
-    sorted by magnitude, so a larger |coef| means a stronger standardised linear
-    association with SSPG.
+    Fits StandardScaler + OLS (via the pseudo-inverse) once on the full real data over the
+    consensus panel and returns (analyte, std_ols_coef, abs_coef) sorted by magnitude; a
+    larger |coef| means a stronger standardised association with SSPG.
     """
     X = StandardScaler().fit_transform(frame[panel].values.astype(float))
     y = frame[target_col].values.astype(float)

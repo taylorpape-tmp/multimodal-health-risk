@@ -1,24 +1,12 @@
-"""Large-scale feature engineering for the wide omics matrix (S4_HealthyIQR).
+"""Feature engineering for the wide omics matrix (S4_HealthyIQR).
 
-S4 is the genuinely high-dimensional block: 12,380 analytes x ~89 patients. The
-study's S8/S9 panels are a ready-made selection; this module instead demonstrates
-a de-novo pipeline for reducing a wide, small-n matrix to a modeling set without
-leaking, the 'advanced statistical skills for large databases' skill.
-
-Pipeline (each step is a pure function so it can be tested in isolation):
-  1. orient            transpose to patients x analytes, join labels via crosswalk
-  2. prevalence_filter drop analytes missing in > max_missing of patients
-  3. variance_filter   drop near-constant analytes (low variance carries no signal)
-  4. impute            median-impute the survivors (fit on TRAIN rows only)
-  5. correlation_prune collapse redundant analytes (|r| > threshold -> keep one)
-  6. pca_embed         dense PCA components as compact features
-  7. (supervised selection is delegated to feature_selection.nested_consensus,
-      run INSIDE cross-validation so selection never sees held-out patients)
-
-Anti-leakage note: prevalence/variance/correlation pruning are unsupervised and
-may run on all rows, but imputation statistics and any supervised selection must
-be fit on training folds only. build_highdim_matrix returns the unsupervised,
-label-free reduced matrix; supervised selection happens in the CV loop.
+S4 is the high-dimensional block (12,380 analytes by ~89 patients), reduced to a
+modeling set by a pipeline of pure steps: orient, prevalence filter, variance
+filter, median impute, correlation prune, PCA embed. Pruning is unsupervised and
+safe on all rows, but imputation and any supervised selection must be fit on
+training folds only, so build_highdim_matrix returns just the label-free reduced
+matrix and supervised selection (feature_selection.nested_consensus) happens in
+the CV loop.
 """
 import re
 
@@ -31,10 +19,10 @@ _SUMMARY = ("Unnamed: 0", "All", "Expression_Mean", "Individual_Mean",
 
 
 def orient(s4, analyte_col="Unnamed: 0"):
-    """Transpose S4 (analytes x patients) to patients x analytes.
+    """Transpose S4 from analytes x patients to patients x analytes.
 
-    Returns (X, site_codes, zcodes): X indexed by Zcode with analyte columns,
-    plus the site-code and Zcode parsed from each 'NN-NNN/Zcode' patient header.
+    Returns (X, site_codes, zcodes): X is indexed by Zcode with analyte columns,
+    plus the site code and Zcode parsed from each 'NN-NNN/Zcode' patient header.
     """
     analytes = s4[analyte_col].astype(str).values
     patient_cols = [c for c in s4.columns if _PATIENT.search(str(c))]
@@ -97,15 +85,13 @@ def pca_embed(X, n_components=20, seed=0):
 
 def build_highdim_matrix(s4, max_missing=0.5, corr_threshold=0.95,
                          n_pca=20, analyte_col="Unnamed: 0", seed=0):
-    """Full reduction of S4 to a compact modeling matrix, for reporting/EDA.
+    """Reduce S4 to a compact modeling matrix, for reporting and EDA.
 
     Returns a dict with the reduced analyte matrix, the PCA-embedded matrix, the
-    explained-variance vector, and a step-by-step count trace.
-
-    Leakage note: prevalence/variance/correlation pruning are label-free and safe
-    on all rows. Imputation and PCA are FIT on all rows here for convenience, that is acceptable for descriptive reporting but is a mild leak for scoring,
-    so inside cross-validation call the step functions per-fold instead (fit
-    impute()/pca_embed() on train rows, apply to the held-out rows).
+    explained-variance vector, and a step-by-step count trace. Imputation and PCA
+    are fit on all rows here, which is fine for reporting but a mild leak for
+    scoring, so inside CV call the step functions per fold instead (fit on train
+    rows, apply to held-out rows).
     """
     X, site_codes, zcodes = orient(s4, analyte_col=analyte_col)
     trace = {"start_analytes": X.shape[1], "n_patients": X.shape[0]}

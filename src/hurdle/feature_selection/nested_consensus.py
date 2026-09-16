@@ -1,19 +1,11 @@
 """Nested four-family consensus feature selection, ported from dom_study.
 
-This is the method the dom_study reviewer praised: four independent selector
-families vote on each feature, a feature enters the frozen set when >= a vote
-threshold of families back it, and the ENTIRE selection is repeated inside each
-outer leave-one-out fold so nothing about the held-out point informs selection
-(the anti-leakage property).
-
-The four families:
-  filter   - Pearson correlation significant at FILTER_ALPHA
-  wrapper  - forward selection by leave-one-out R^2 gain (linear scorer)
-  embedded - nonzero LASSO or ElasticNet coefficient
-  explain  - top-k by standardised OLS coefficient magnitude (SHAP proxy)
-
-Adaptations for HURDLE: the target, feature pool, and vote threshold are
-parameters rather than hardcoded; no file paths or dataset-specific globals.
+Four selector families (filter by Pearson correlation, wrapper by forward LOO R^2
+gain, embedded by nonzero LASSO/ElasticNet coefficient, explain by top-k
+standardised OLS coefficients) vote on each feature, and a feature enters the frozen
+set once enough families back it. The whole selection is repeated inside each outer
+leave-one-out fold so the held-out point never informs selection, with target,
+feature pool, and vote threshold all parameters.
 """
 import numpy as np
 import pandas as pd

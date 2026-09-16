@@ -1,22 +1,10 @@
-"""Differential privacy via the Gaussian mechanism, numpy/scipy only.
+"""Differential privacy via the Gaussian mechanism (numpy/scipy only).
 
-The Gaussian mechanism releases f(D)+N(0,sigma^2 I) where sigma is calibrated to
-the L2 sensitivity of f and the target (epsilon,delta). Two calibrations are
-provided:
-
-  classic_gaussian_sigma  sigma = Delta * sqrt(2 ln(1.25/delta)) / epsilon
-                          the Dwork & Roth (2014) closed form. Valid only for
-                          epsilon <= 1; noise variance is exactly proportional to
-                          1/epsilon^2 (used for the variance-scaling guarantee).
-
-  analytic_gaussian_sigma the Balle & Wang (2018) analytic mechanism: the smallest
-                          sigma satisfying the exact Gaussian privacy curve
-                            delta = Phi(Delta/2sigma - eps*sigma/Delta)
-                                    - e^eps * Phi(-Delta/2sigma - eps*sigma/Delta)
-                          solved by bisection. Valid for ALL epsilon>0, so it is
-                          the default for releases whose sweep includes epsilon>1.
-
-epsilon=inf means "no privacy": sigma=0, the mechanism returns f(D) exactly.
+Releases f(D)+N(0,sigma^2 I) with sigma calibrated to the L2 sensitivity of f and
+the target (epsilon, delta), via either classic_gaussian_sigma (Dwork & Roth,
+valid only for epsilon<=1) or analytic_gaussian_sigma (Balle & Wang 2018, the
+default, valid for all epsilon>0). epsilon=inf means no privacy: sigma=0 and f(D)
+is returned exactly.
 """
 import numpy as np
 from scipy.optimize import brentq
@@ -26,10 +14,9 @@ from scipy.stats import norm
 def classic_gaussian_sigma(sensitivity, epsilon, delta):
     """Noise scale from the classic bound sigma = Delta*sqrt(2 ln(1.25/delta))/eps.
 
-    Delta is the L2 sensitivity. The closed form is only a valid (eps,delta)-DP
-    guarantee for epsilon in (0,1]; for larger epsilon it stays finite but is no
-    longer tight, so analytic_gaussian_sigma is preferred there. Because sigma is
-    linear in 1/epsilon, the noise variance scales exactly as 1/epsilon^2.
+    Delta is the L2 sensitivity, and this is only a valid guarantee for epsilon in
+    (0,1] (use analytic_gaussian_sigma above that). Since sigma is linear in
+    1/epsilon, noise variance scales as 1/epsilon^2.
     """
     if epsilon == np.inf:
         return 0.0
@@ -43,12 +30,9 @@ def classic_gaussian_sigma(sensitivity, epsilon, delta):
 def analytic_gaussian_sigma(sensitivity, epsilon, delta):
     """Smallest sigma satisfying the exact Gaussian privacy curve (Balle & Wang 2018).
 
-    Solves delta(sigma)=0 for the privacy loss of adding N(0,sigma^2) to a query of
-    L2 sensitivity Delta, where
-        delta(sigma) = Phi(Delta/2sigma - eps*sigma/Delta)
-                       - e^eps * Phi(-Delta/2sigma - eps*sigma/Delta).
-    delta(sigma) is strictly decreasing in sigma, so a unique root exists and is
-    found by bisection. Valid for all epsilon>0 (unlike the classic bound).
+    Solves delta(sigma)=0 for adding N(0,sigma^2) to a query of L2 sensitivity Delta;
+    delta(sigma) is strictly decreasing, so the unique root is found by bisection.
+    Valid for all epsilon>0, unlike the classic bound.
     """
     if epsilon == np.inf:
         return 0.0
@@ -73,21 +57,10 @@ def analytic_gaussian_sigma(sensitivity, epsilon, delta):
 def dp_gaussian_mean(x, epsilon, delta, bounds, seed=None, calibration="analytic"):
     """(epsilon,delta)-DP release of the mean of a bounded 1-D sample.
 
-    Mechanism: clip each x_i to [lo,hi], compute the empirical mean of the clipped
-    values, then add Gaussian noise N(0,sigma^2).
-
-    Sensitivity: the mean is (1/n) sum of values each confined to a range of width
-    R = hi-lo. Changing one record moves the sum by at most R and the mean by at
-    most R/n, so the L2 sensitivity of the mean is Delta = R/n (bounded-difference
-    / add-remove-one on a fixed-n query, the standard clipped-mean sensitivity).
-
-    sigma is calibrated to (Delta,epsilon,delta) by the chosen calibration
-    ('analytic', default, valid for all epsilon; or 'classic', 1/epsilon^2 variance
-    but only tight for epsilon<=1). epsilon=inf returns the exact clipped mean.
-
-    Returns (dp_mean, sigma). The noise is drawn from the given seed for
-    reproducibility; sigma is the released noise scale, not itself private
-    (it depends only on n, bounds, epsilon, delta).
+    Clips each x_i to [lo,hi], takes the empirical mean (L2 sensitivity (hi-lo)/n),
+    and adds Gaussian noise calibrated by the chosen calibration ('analytic' default,
+    or 'classic'). Returns (dp_mean, sigma), where epsilon=inf gives the exact clipped
+    mean and sigma is not itself private.
     """
     x = np.asarray(x, dtype=float).ravel()
     if x.size == 0:
@@ -109,17 +82,9 @@ def dp_gaussian_mean(x, epsilon, delta, bounds, seed=None, calibration="analytic
 def dp_summary_table(X, epsilon, delta, bounds=None, seed=None, calibration="analytic"):
     """Per-feature (epsilon,delta)-DP means for a patient-by-feature matrix.
 
-    Releases one DP mean per column. The total privacy budget (epsilon,delta) is
-    split across the d features by BASIC (sequential) composition: each per-feature
-    release gets (epsilon/d, delta/d), so the d releases compose to (epsilon,delta)
-    overall. This is the conservative composition; advanced composition could give
-    a tighter budget but is not claimed here.
-
-    bounds: (d,2) array of per-feature [lo,hi] clip ranges, or None to use each
-    column's observed [min,max]. Using observed min/max is itself weakly data
-    dependent and is offered only for the demo; a truly private deployment must fix
-    public bounds in advance. The returned frame records which was used.
-
+    Releases one DP mean per column, splitting the budget by basic composition so
+    each of the d features gets (epsilon/d, delta/d); bounds is a (d,2) array of clip
+    ranges, or None to use each column's observed min/max (data dependent, demo only).
     Returns a DataFrame indexed by feature with columns
     [true_mean, dp_mean, abs_error, sigma, lo, hi].
     """
@@ -171,22 +136,10 @@ def dp_output_perturbed_logistic(X, y, epsilon, delta, lam=0.1, seed=None,
                                  calibration="analytic"):
     """(epsilon,delta)-DP logistic regression by output perturbation.
 
-    Chaudhuri, Monteleoni & Sarwate (2011): train an L2-regularized logistic
-    regression, then release w_dp = w* + N(0,sigma^2 I). With every feature row
-    L2-normalized so ||x_i|| <= 1 and objective (1/n) sum loss + (lam/2)||w||^2,
-    the minimizer w* has L2 sensitivity Delta = 2/(n*lam) to replacing one record
-    (their Corollary 8; the logistic loss is 1-Lipschitz in the margin). sigma is
-    calibrated to (Delta,epsilon,delta) by the Gaussian mechanism.
-
-    We use output perturbation rather than DP-SGD deliberately: it needs no
-    per-step gradient-clipping or Renyi/moments accountant, so the (epsilon,delta)
-    guarantee is exact and auditable in ~30 lines of numpy/sklearn with no heavy
-    dependency. Rows are L2-normalized inside this function to enforce the
-    ||x_i||<=1 precondition the sensitivity bound requires.
-
-    Returns (w_dp, sigma). epsilon=inf returns the non-private w* (sigma=0).
-    Intercept is not fit (folding a bias into the norm bound would loosen it);
-    center/scale features upstream if needed.
+    Following Chaudhuri, Monteleoni & Sarwate (2011), fits L2-regularized logistic
+    regression on L2-normalized rows (giving sensitivity 2/(n*lam)) and releases
+    w* + Gaussian noise. Returns (w_dp, sigma); epsilon=inf gives the non-private w*,
+    and no intercept is fit (center/scale upstream if needed).
     """
     from sklearn.linear_model import LogisticRegression
 

@@ -1,25 +1,10 @@
 """FastAPI serving app for HURDLE diabetes-risk models.
 
-This is the entrypoint baked into the serving Docker image and pushed to ECR by
-the deploy workflow. It exposes:
-
-  GET  /health   -> liveness/readiness probe (used by load balancers / ECS)
-  GET  /         -> service metadata
-  POST /predict  -> score a single omics feature vector (predicted SSPG)
-
-The prediction path serves a real fitted scikit-learn pipeline (a standardized
-RidgeCV over the S8 omics analytes -- the CPU-tier HURDLE regressor for the
-SSPG continuous insulin-resistance target). Model resolution at startup, in
-order:
-
-  1. If a checkpoint exists at $HURDLE_MODEL_PATH, load it (joblib).
-  2. Else, if the cleaned S8 interim matrix is on disk under
-     $HURDLE_INTERIM_DIR, train the RidgeCV pipeline in-process (fast: n=59,
-     86 analyte features) and serve its real predictions.
-  3. Else, stay in a degraded "no-model" mode that still answers /health so
-     the container and CI smoke test pass without any artifact present.
-
-Predictions are always real model output -- never a hardcoded score.
+The entrypoint in the serving Docker image, exposing /health, /, and a /predict that
+scores a single omics vector for SSPG with a standardized RidgeCV pipeline over the S8
+analytes, resolved at startup from a $HURDLE_MODEL_PATH checkpoint, else trained
+in-process from the S8 matrix under $HURDLE_INTERIM_DIR, else a no-model mode that
+still answers /health.
 
 Run locally:
     uvicorn hurdle.serving.app:app --host 0.0.0.0 --port 8080
@@ -47,9 +32,9 @@ INTERIM_DIR = os.environ.get("HURDLE_INTERIM_DIR", "data/interim")
 class ServedModel:
     """A fitted regressor plus the feature contract it was trained against.
 
-    Wrapping a bare sklearn pipeline this way lets /predict validate the
-    incoming vector length and report the model name/feature count uniformly,
-    whether the estimator came from a checkpoint or from startup training.
+    Wrapping the pipeline lets /predict validate the incoming vector length and
+    report the model name and feature count uniformly, whether the estimator came
+    from a checkpoint or from startup training.
     """
 
     estimator: Any                                  #fitted object exposing .predict
@@ -77,10 +62,9 @@ def _build_ridge_pipeline():
 
 
 def train_sspg_model(interim_dir: str = INTERIM_DIR) -> ServedModel:
-    """Fit the SSPG RidgeCV pipeline on the real S8 omics matrix.
-
-    Uses the same feature builder the offline pipeline uses, so the served
-    feature contract (85 analytes + TG_HDL_ratio) matches training exactly.
+    """Fit the SSPG RidgeCV pipeline on the real S8 omics matrix, using the same
+    feature builder as the offline pipeline so the served feature contract (85
+    analytes + TG_HDL_ratio) matches training exactly.
     """
     from hurdle.features.omics import build_feature_matrix
 
@@ -95,11 +79,9 @@ _model: ServedModel | None = None
 
 
 def _load_model() -> None:
-    """Resolve a real model at boot; never raise (missing data -> no-model mode).
-
-    A missing checkpoint AND missing training data must not stop the container
-    from booting and answering /health -- that keeps CI smoke tests and rolling
-    deploys green before any artifact/data is mounted.
+    """Resolve a real model at boot, never raising: a missing checkpoint and missing
+    training data drop to no-model mode so the container still boots and answers
+    /health before any artifact or data is mounted.
     """
     global _model
     if os.path.exists(MODEL_PATH):
@@ -131,11 +113,10 @@ app = FastAPI(
 
 
 def get_model() -> ServedModel:
-    """FastAPI dependency yielding the active model.
+    """FastAPI dependency yielding the active model, raising 503 when none is loaded.
 
-    Isolating model access behind a dependency lets tests inject a tiny fitted
-    model via app.dependency_overrides[get_model] without touching disk or the
-    startup path. Raises 503 when no model is loaded.
+    Isolating model access behind a dependency lets tests inject a fitted model via
+    app.dependency_overrides[get_model] without touching disk or the startup path.
     """
     if _model is None:
         raise HTTPException(

@@ -1,8 +1,9 @@
-"""Smoke integration for the omics modality: build the SSPG matrix, run XGBoost
-and Ridge through the MLModel wrappers under leave-one-out CV, print metrics.
+"""Smoke integration for the omics modality: build the SSPG matrix, run XGBoost and Ridge
+through the MLModel wrappers under leave-one-out CV, print metrics.
 
-Kept quick on purpose: no hyperparameter grids (param_grid=None), so each model
-is a single LOO pass over ~59 patients. Run from the repo root:
+Deliberately quick: no hyperparameter grids (param_grid=None), so each model is a single LOO
+pass over ~59 patients.
+
     python scripts/run_omics_baseline.py
 """
 import sys

@@ -1,6 +1,6 @@
-"""Query helpers, the JOINs that turn the normalized store back into modeling
-matrices. This is the payoff of the SQL layer: one query assembles the feature
-matrix instead of stitching DataFrames by hand.
+"""Query helpers: the JOINs that turn the normalized store back into modeling
+matrices, so one query assembles a feature matrix instead of stitching DataFrames
+by hand.
 """
 import pandas as pd
 from sqlalchemy import text

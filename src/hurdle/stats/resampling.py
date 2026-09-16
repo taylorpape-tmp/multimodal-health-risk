@@ -1,9 +1,9 @@
-"""uncertainty and significance by resampling.
+"""Uncertainty and significance by resampling.
 
-bootstrap_ci: paired bootstrap over samples for a point metric.
-permutation_test: label-permutation null that RESPECTS the CV structure -- the
-caller passes a predict_fn that reruns the whole cross-validation on the
-permuted labels, so the permutation happens OUTSIDE the CV and cannot leak.
+bootstrap_ci does a paired bootstrap over samples for a point metric.
+permutation_test builds a label-permutation null that respects the CV structure:
+the caller's predict_fn reruns the whole cross-validation on the permuted labels,
+so the permutation happens outside the CV and cannot leak.
 """
 import numpy as np
 
@@ -11,13 +11,12 @@ from .metrics import GREATER_IS_BETTER
 
 
 def bootstrap_ci(y_true, y_pred, metric_fn, n_boot=2000, seed=0, alpha=0.05):
-    """paired-bootstrap CI for metric_fn evaluated on (y_true, y_pred).
+    """Paired-bootstrap CI for metric_fn evaluated on (y_true, y_pred).
 
-    resamples sample indices with replacement, keeping y_true/y_pred paired, and
-    returns (point, lo, hi). point is the metric on the full sample; lo/hi are
-    the alpha/2 and 1-alpha/2 percentiles of the bootstrap distribution.
-    resamples that make the metric undefined (e.g. one-class AUROC, constant
-    Pearson) are dropped rather than counted as zeros.
+    Resamples indices with replacement, keeping y_true/y_pred paired, and returns
+    (point, lo, hi): the metric on the full sample plus the alpha/2 and 1-alpha/2
+    percentiles of the bootstrap distribution. Resamples that make the metric
+    undefined (one-class AUROC, constant Pearson) are dropped, not counted as zeros.
     """
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
@@ -43,18 +42,13 @@ def bootstrap_ci(y_true, y_pred, metric_fn, n_boot=2000, seed=0, alpha=0.05):
 
 def permutation_test(y_true, predict_fn, metric_fn, n_perm=1000, seed=0,
                      greater_is_better=None, metric_name=None):
-    """label-permutation p-value for 'is the model better than chance'.
+    """Label-permutation p-value for 'is the model better than chance'.
 
-    predict_fn(labels) -> predictions must rerun the FULL cross-validation on the
-    labels it is given, so permuting the labels re-tests the whole CV pipeline
-    (no leakage). observed = metric_fn(y_true, predict_fn(y_true)). for each of
-    n_perm permutations we shuffle the labels, rerun predict_fn, score, and count
-    how often the permuted score is at least as good as observed. p is the
-    add-one estimate (1 + count) / (1 + n_perm).
-
-    greater_is_better selects the tail: True counts permuted >= observed (scores
-    like R2/AUROC), False counts permuted <= observed (errors like RMSE). if None
-    it is looked up from metric_name, else defaults to True.
+    predict_fn(labels) must rerun the full cross-validation on the labels it gets, so
+    each of n_perm shuffles re-tests the whole pipeline with no leakage and p is the
+    add-one estimate (1 + count) / (1 + n_perm). greater_is_better picks the tail
+    (True for scores like R2/AUROC, False for errors like RMSE); if None it is looked
+    up from metric_name, else defaults to True.
     """
     if greater_is_better is None:
         greater_is_better = GREATER_IS_BETTER.get(metric_name, True)

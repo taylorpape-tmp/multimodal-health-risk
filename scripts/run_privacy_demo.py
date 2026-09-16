@@ -1,23 +1,14 @@
 """Privacy-preserving ML demo on the real omics data: DP epsilon-sweep + FedAvg.
 
-Runs from the repo root:  python scripts/run_privacy_demo.py
+Produces three real-data measurements, no fabricated numbers: IRIS held-out accuracy of an
+output-perturbed logistic regression as epsilon sweeps 0.1 to inf; the mean absolute error
+of a DP summary table over the SSPG matrix as the budget splits across features; and
+FedAvg over IRIS patients partitioned across simulated sites versus a central model on the
+same split. Writes privacy_utility_tradeoff.png and privacy_report.csv under reports/, and
+aborts with a clear message (rather than inventing data) if the interim omics csvs are
+absent.
 
-Three real-data measurements, no fabricated numbers:
-  1. DP downstream utility  -- IRIS (IS/IR) held-out accuracy of an
-     output-perturbed logistic regression as epsilon sweeps 0.1..inf.
-  2. DP per-feature release -- mean absolute error of a DP summary table over the
-     SSPG omics matrix, showing the cost of splitting the budget across features
-     by basic composition.
-  3. Federated vs central   -- FedAvg over the real IRIS patients partitioned
-     across n_clients simulated sites, compared to a central model on the same
-     held-out split. Federated shares only model params, never raw rows.
-
-Outputs (created under reports/):
-  privacy_utility_tradeoff.png   metric-vs-epsilon (DP) and federated-vs-central
-  privacy_report.csv             every epsilon/metric row + the fed/central rows
-
-If the interim omics csvs are absent the run aborts with a clear message rather
-than inventing data.
+    python scripts/run_privacy_demo.py
 """
 import sys
 from pathlib import Path

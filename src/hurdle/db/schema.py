@@ -1,20 +1,9 @@
 """Database schema for the multimodal diabetes-risk store.
 
-Engine-agnostic SQLAlchemy Core so the same schema/ingest/query code runs on
-local SQLite (dev) and BigQuery (the GCP cloud demonstration). One small
-star-ish design keyed on subject:
-
-  subjects            one row per iPOP patient (labels + demographics)
-  omics_features      long: subject x analyte x value, tagged by panel (S8/S9)
-  wearable_features   long: subject x feature x value (engineered features)
-  cgm_features        long: subject x feature x value (glucose-variability)
-  subject_crosswalk   id mapping across the studies (omics Z-code <-> CGM id)
-  predictions         model output per subject/target/model
-  metrics             one row per model run (external CV metrics)
-
-Long format for the feature tables (rather than one column per analyte/feature)
-keeps the schema stable when the feature set changes and makes 'give me these
-features for these subjects' a clean WHERE ... IN query.
+Engine-agnostic SQLAlchemy Core so the same schema/ingest/query code runs on local
+SQLite and BigQuery: a small star design keyed on subject, with feature tables
+(omics, wearable, CGM) in long format so the schema stays stable as the feature set
+changes and 'these features for these subjects' is a clean WHERE ... IN query.
 """
 from sqlalchemy import Column, Float, ForeignKey, Integer, MetaData, String, Table, UniqueConstraint
 

@@ -1,12 +1,9 @@
 """publication-quality showcase figures for the hurdle multimodal portfolio.
 
-runs end to end from the repo root against the real data under data/. every
-annotated numeric result in the analytic figures (wearable cosinor, CGM TIR,
-S4 funnel counts and PCA scree, SSPG CV metrics, retina class balance) is
-computed here from the loaded data, never a hardcoded stand-in. the two
-schematic figures (data_landscape, pipeline_architecture) instead carry
-descriptive cohort-size ranges and infrastructure labels as static captions.
-writes one png per figure to reports/figures/.
+runs end to end from the repo root against the real data under data/. every numeric
+result in the analytic figures is computed here from the loaded data, never hardcoded;
+the two schematic figures instead carry static descriptive captions. writes one png per
+figure to reports/figures/.
 
     python scripts/make_showcase_figures.py
 """

@@ -1,8 +1,9 @@
-"""Build the local SQLite store from the cleaned interim files.
+"""Build the local SQLite store (data/hurdle.db) from the cleaned interim files.
 
-Run from the repo root:  python scripts/build_db.py
-Rebuilds data/hurdle.db from scratch (drop + create + ingest). The db file is
-gitignored; this script is the reproducible recipe that recreates it.
+Rebuilds from scratch (drop, create, ingest). The db is gitignored; this is the reproducible
+recipe that recreates it.
+
+    python scripts/build_db.py
 """
 import sys
 from pathlib import Path

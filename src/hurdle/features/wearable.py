@@ -1,23 +1,14 @@
 """Per-subject wearable feature engineering for the Basis-watch cohort.
 
-Input is one parquet per subject under data/interim/wearable/: a 1-minute
-resampled frame with a tz-aware UTC DatetimeIndex and columns hr (bpm),
-accel_magnitude (device counts), skin_temp (degrees Fahrenheit). Only worn
-minutes are present as rows; gaps in the index are non-wear.
-
-The feature set goes well beyond means/stds, capturing temporal structure:
-  circadian   - cosinor MESOR/amplitude/acrophase for hr and skin_temp,
-                interdaily stability (IS), intradaily variability (IV),
-                relative amplitude (RA)
-  sleep/rest  - nightly minimum-HR window, resting HR, HR dip to nightly low
-  activity    - MVPA-proxy minutes, sedentary minutes, sedentary-bout length,
-                activity fragmentation
-  hr dynamics - SDNN-like and RMSSD-like variability of the 1-min HR series,
-                day-to-day regularity of the daily HR profile
-  wear        - worn minutes, worn days, recording span, coverage fraction
-
-extract_features(parquet_path) -> dict is one subject (one row);
-build_wearable_matrix(interim_wear_dir) -> DataFrame stacks subjects x features.
+Input is one parquet per subject under data/interim/wearable/: a 1-minute frame
+with a tz-aware UTC DatetimeIndex and columns hr (bpm), accel_magnitude (device
+counts), and skin_temp (degrees F), where only worn minutes are rows and index
+gaps are non-wear. Beyond means and stds, the features capture temporal structure:
+circadian (cosinor MESOR/amplitude/acrophase, IS, IV, RA), sleep/rest (resting HR,
+nightly HR low, HR dip), activity (MVPA and sedentary minutes, bout length,
+fragmentation), HR dynamics (SDNN- and RMSSD-like variability, day-to-day
+regularity), and wear coverage. extract_features() returns one subject's row and
+build_wearable_matrix() stacks subjects x features.
 """
 import math
 from pathlib import Path

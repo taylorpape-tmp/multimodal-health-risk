@@ -1,14 +1,9 @@
-"""real statistics + evaluation report for the omics models.
+"""real statistics and evaluation report for the omics models.
 
-runs the leave-one-out cross-validation via the real MLModel, then attaches
-uncertainty (95% bootstrap CIs) and significance (label-permutation p-values
-that rerun the full CV on permuted labels, respecting the CV structure).
-
-outputs:
-  reports/stats_report.csv          one row per model/target/metric
-  reports/calibration_omics_iris.png reliability diagram for the IRIS classifier
-
-real data only: if an interim csv is missing, that section is SKIPPED and noted.
+runs the leave-one-out CV via the real MLModel, then attaches uncertainty (95% bootstrap
+CIs) and significance (label-permutation p-values that rerun the full CV on permuted
+labels). writes reports/stats_report.csv and reports/calibration_omics_iris.png. real data
+only: a missing interim csv skips that section.
 """
 import sys
 from pathlib import Path

@@ -1,19 +1,12 @@
-"""SHAP feature attribution on the REAL omics -> SSPG regression.
+"""SHAP feature attribution on the real omics -> SSPG regression.
 
-Fits one XGBoost regressor on the full Stanford S8 SSPG matrix (59 patients x
-~86 analytes), computes exact TreeExplainer SHAP values, and cross-checks the
-resulting global importance ranking against two independent measures: XGBoost's
-native gain and the cross-fold consensus selection frequency
-(reports/consensus_panel_sspg.csv). Agreement across three methods is evidence
-the SSPG signal is carried by real analytes, not a single-method artefact.
+Fits one XGBoost regressor on the full Stanford S8 SSPG matrix (59 patients x ~86 analytes),
+computes exact TreeExplainer SHAP values, and cross-checks the global importance ranking
+against XGBoost's native gain and the cross-fold consensus selection frequency. Agreement
+across the three methods is evidence the signal comes from real analytes rather than one
+method's artefact. Writes reports/shap_omics_importance.csv and reports/shap_summary.png
+(beeswarm, or a mean|SHAP| bar if the beeswarm fails).
 
-Outputs (all from a real run; nothing synthetic):
-  reports/shap_omics_importance.csv  analyte, mean_abs_shap, native_gain,
-                                     consensus_freq, rank_shap, rank_gain
-  reports/shap_summary.png           SHAP beeswarm of the top analytes, or a
-                                     horizontal mean|SHAP| bar if beeswarm fails
-
-Run from the repo root:
     python scripts/run_shap_attribution.py
 """
 import sys

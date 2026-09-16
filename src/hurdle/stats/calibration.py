@@ -1,18 +1,15 @@
-"""calibration assessment for regression and classification.
+"""Calibration assessment for regression and classification.
 
-regression: binned predicted-vs-observed means (a reliability curve for a
-continuous target). classification: reliability-diagram data (predicted prob vs
-observed frequency), the Brier score, and expected calibration error (ECE).
+Regression gives binned predicted-vs-observed means; classification gives
+reliability-diagram data, the Brier score, and expected calibration error.
 """
 import numpy as np
 
 
 def calibration_curve_reg(y_true, y_pred, n_bins=10):
-    """bin predictions into n_bins equal-width bins over the predicted range and
-    return (pred_mean, true_mean, counts) for the non-empty bins.
-
-    a well-calibrated regressor has pred_mean ~= true_mean in every bin (points
-    fall on the identity line).
+    """Bin predictions into n_bins equal-width bins over the predicted range and
+    return (pred_mean, true_mean, counts) for the non-empty bins. A calibrated
+    regressor has pred_mean close to true_mean in every bin.
     """
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -34,11 +31,10 @@ def calibration_curve_reg(y_true, y_pred, n_bins=10):
 
 
 def reliability_diagram(y_true, y_prob, n_bins=10):
-    """bin predicted probabilities into n_bins equal-width bins over [0,1] and
-    return (pred_mean, obs_freq, counts) for the non-empty bins.
-
-    pred_mean is the mean predicted probability in the bin, obs_freq the observed
-    fraction of positives. a calibrated classifier has pred_mean ~= obs_freq.
+    """Bin predicted probabilities into n_bins equal-width bins over [0,1] and
+    return (pred_mean, obs_freq, counts) for the non-empty bins, where obs_freq is
+    the observed fraction of positives. A calibrated classifier has pred_mean close
+    to obs_freq.
     """
     y_true = np.asarray(y_true, dtype=float)
     y_prob = np.asarray(y_prob, dtype=float)

@@ -1,22 +1,10 @@
-"""Load the local HURDLE SQLite store into a real BigQuery dataset.
+"""Load the local HURDLE SQLite store (data/hurdle.db) into a BigQuery dataset.
 
-This is the cloud-SQL demonstration for the project: the same relational store
-that lives locally in data/hurdle.db is loaded into Google BigQuery, proving the
-GCP half of the "cloud systems (AWS and GCP)" competency end to end.
+Reads each table into a DataFrame and uses the BigQuery client's load-from-dataframe
+path, sidestepping the SQLite-only SQL (OR IGNORE, autoincrement PKs) the local ingest
+relies on. Authenticates with Application Default Credentials, so run
+`gcloud auth application-default login` once first (no service-account key needed).
 
-Auth: uses Application Default Credentials (ADC). Run
-    gcloud auth application-default login
-once in your terminal first, so no service-account key file is needed (key
-creation is blocked by the org's Secure-by-Default policy, and ADC with your own
-identity is the more secure pattern anyway).
-
-Why a dedicated loader instead of pointing ingest.get_engine at a bigquery:// URL:
-the local ingest uses SQLite-only SQL (OR IGNORE, autoincrement PKs) that BigQuery
-does not support. Reading each table into a DataFrame and using the BigQuery
-client's load-from-dataframe path is the standard, dialect-clean way to load a
-small store, so that is what this script does.
-
-Usage:
     python scripts/load_bigquery.py --project hurdle-diabetes
     python scripts/load_bigquery.py --project hurdle-diabetes --dataset hurdle_dataset --location EU
 """

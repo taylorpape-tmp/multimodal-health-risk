@@ -1,19 +1,13 @@
-"""Multimodal fusion model + the controls that prove fusion does real work.
+"""Late-fusion model plus the controls that show fusion adds something.
 
-Late fusion: each modality gets its own base learner, their out-of-fold
-predictions become the meta-features, and a meta-learner combines them into the
-final prediction of the target (latent z on the virtual cohort, or real SSPG on
-the linked cohort). Out-of-fold stacking (not in-fold) keeps the meta-learner
-from seeing leaked base-model fits.
+Each modality gets its own base learner; their out-of-fold predictions become
+meta-features that a ridge meta-learner combines to predict the target (latent z
+on the virtual cohort, or measured SSPG/IRIS on the real linked cohort). Using
+out-of-fold predictions keeps the meta-learner from seeing leaked base fits.
 
-Truth is always external to the model:
-  - virtual cohort: the pre-set hidden latent z (regression) or iris=1[z>0]
-  - real 22:        measured SSPG (regression) or IRIS (classification)
-
-Controls (compare_controls):
-  - unimodal floor: best single modality alone -> fusion must beat it
-  - scramble:       break the shared-z coupling -> fusion advantage must vanish
-  - additive:       a standardized hand-sum of modality scores as baseline-to-beat
+compare_controls runs three checks: fusion must beat the best single modality,
+the advantage must vanish when the shared-z coupling is scrambled, and fusion
+must beat a hand-summed additive baseline.
 """
 import numpy as np
 import pandas as pd
@@ -46,8 +40,8 @@ def modality_oof(cohort, y, n_splits=5, seed=0):
 
 
 def fuse(cohort, y, n_splits=5, seed=0):
-    """Late-fusion stack. Returns dict with fused out-of-fold predictions and
-    each modality's standalone out-of-fold prediction (for the ablation floor).
+    """Late-fusion stack. Returns the fused out-of-fold predictions plus each
+    modality's standalone out-of-fold prediction (for the ablation floor).
     """
     meta = modality_oof(cohort, y, n_splits=n_splits, seed=seed)
     #meta-learner: ridge on the per-modality oof predictions, itself out-of-fold
@@ -82,8 +76,8 @@ def additive_baseline(cohort, y):
 def compare_controls(cohort, scramble_fn, y=None, n_splits=5, seed=0):
     """Run the fusion and its three controls, returning a comparison table.
 
-    y defaults to the cohort's latent z (the virtual-cohort truth). Pass real
-    SSPG to score the real linked cohort instead.
+    y defaults to the cohort's latent z; pass real SSPG to score the real
+    linked cohort instead.
     """
     y = cohort.z if y is None else np.asarray(y, dtype=float)
 

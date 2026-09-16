@@ -1,28 +1,12 @@
-"""Nested-CV rigor checks: prove reported omics scores are not inflated by
-hyperparameter-selection leakage, and that the model beats trivial baselines.
+"""Nested-CV rigor checks: show reported omics scores are not inflated by
+hyperparameter-selection leakage and that the model beats trivial baselines.
 
-The whole point of nesting is to keep hyperparameter selection OUT of the score.
-Two constructions share one outer leave-one-out (LOO) loop so they are directly
-comparable and differ in exactly one thing -- whether the tuning grid was allowed
-to see the held-out point:
-
-  non-nested (leaky): pick ONE best config via inner CV on ALL the data, then run
-      LOO with that config frozen. every held-out point was used to choose the
-      config, so its score is optimistic. this is the mistake people make when
-      they tune once and then report the CV score of the winner.
-  nested (honest):    inside EACH outer LOO fold, run inner CV on the training
-      portion only to pick the config, refit, predict the one held-out point.
-      the held-out point never touched hyperparameter selection.
-
-Both pool the out-of-fold predictions and score R2 once on the pool -- the same
-pooled-LOO R2 the rest of the repo reports (matching stats_report.csv). The
-optimism gap (non-nested minus nested) is the inflation that nesting removes; the
-honest, reportable headline number is the NESTED one.
-
-Trivial baselines run on the same LOO split so a real signal is provable, not
-assumed: predict-the-training-mean (DummyRegressor), the same tuned model on
-row-shuffled features, and on random-noise features of the same shape. A genuine
-model must beat all three.
+Two constructions share one outer leave-one-out loop and differ only in whether the
+tuning grid saw the held-out point: the non-nested (leaky) version tunes once on all
+the data and is optimistic, while the nested (honest) version tunes inside each outer
+fold, and the gap between their pooled-LOO R2 is the inflation nesting removes.
+Trivial baselines (training-mean, row-shuffled features, random-noise features) run
+on the same split, and a genuine model must beat all three.
 """
 import numpy as np
 from sklearn.dummy import DummyRegressor
@@ -100,9 +84,9 @@ def dummy_mean_r2(X, y):
 
 
 def shuffled_features_r2(make_estimator, param_grid, X, y, inner_splits=5, seed=0):
-    """Nested pooled-LOO R2 with the design matrix decoupled from y by permuting
-    its rows -- feature distributions and inter-feature correlations are intact,
-    only the X->y mapping is destroyed. Expected near 0.
+    """Nested pooled-LOO R2 with the design matrix decoupled from y by permuting its
+    rows, so feature distributions and correlations stay intact but the X->y mapping
+    is destroyed. Expected near 0.
     """
     Xa = _as_array(X)
     rng = np.random.default_rng(seed)

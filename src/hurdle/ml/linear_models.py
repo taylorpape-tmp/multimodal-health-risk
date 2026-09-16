@@ -1,6 +1,6 @@
 """Linear model wrappers (OLS, Ridge, ElasticNet), ported from dom_study.
 
-Each returns a BARE estimator; the MLModel base wraps it with the chosen
+Each returns a bare estimator; the MLModel base wraps it with the chosen
 transform (default 'standard' for the linear family). fold_meta reads the
 estimator from the pipeline's 'model' step.
 """

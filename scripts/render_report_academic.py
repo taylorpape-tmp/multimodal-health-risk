@@ -1,8 +1,7 @@
-"""Render PROJECT_REPORT.md as an academic-style .docx.
+"""Render PROJECT_REPORT.md as an academic-style .docx (reports/PROJECT_REPORT.docx).
 
-Matches the thesis conventions: Times New Roman throughout, all-black text
-(headings included), 12pt body, formal figure captions numbered Figure N.
-Figures are the only colour in the document. Produces reports/PROJECT_REPORT.docx.
+Follows thesis conventions: Times New Roman throughout, all-black text including headings,
+12pt body, formal captions numbered Figure N, with figures the only colour.
 """
 import re
 from pathlib import Path

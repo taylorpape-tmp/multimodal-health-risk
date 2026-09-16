@@ -1,26 +1,14 @@
 """Transfer-learning scaffold for RetinaMNIST DR grading.
 
-This module builds models; it does NOT train them. It gives the training script
-four things it needs to fine-tune a fundus backbone:
+This builds models but does not train them. It gives the training script a fresh
+5-class head on a chosen backbone, a freeze/unfreeze toggle (linear-probe vs full
+fine-tune), discriminative-LR param groups (small LR on the backbone, larger on
+the head), and a from-scratch torch-only CNN baseline for comparison.
 
-  1. a fresh 5-class head on top of a chosen backbone,
-  2. a freeze/unfreeze toggle for the backbone (linear-probe vs full fine-tune),
-  3. discriminative-LR param groups (small LR on the pretrained backbone, larger
-     LR on the fresh head),
-  4. a from-scratch baseline (torch-only small CNN, no pretrained weights) so a
-     transfer model can be compared against training from zero.
-
-Verified backbone ids (from the model scout shortlist):
-  retfound  YukunZhou/RETFound_mae_natureCFP  ViT-L fundus FM, GATED (CC-BY-NC,
-            needs a Hugging Face license accept + auth token to download)
-  resnet50  microsoft/resnet-50               ungated ImageNet CNN (Apache-2.0)
-  dinov2    facebook/dinov2-small             ungated self-supervised ViT FM
-
-torch (and, for the pretrained backbones, transformers) are OPTIONAL. The module
-imports cleanly without them; the builder raises a clear 'install torch' message
-when torch is absent so a torch-free environment fails loudly at build time
-rather than at import. Tests guard the torch path with importorskip and only ever
-build the torch-only from-scratch baseline, never downloading gated weights.
+Backbones are limited to a verified shortlist (retfound, resnet50, dinov2); see
+BACKBONES for ids and licenses. torch (and transformers, for the pretrained
+backbones) are optional: the module imports without them and the builder raises
+a clear 'install torch' message so a torch-free environment fails at build time.
 """
 from dataclasses import dataclass
 
@@ -165,25 +153,15 @@ def build_transfer_model(backbone="resnet50", num_classes=NUM_CLASSES,
                          pretrained=True, freeze_backbone=True, from_scratch=False):
     """Build a DR-grading model with a fresh num_classes head.
 
-    Parameters
-    ----------
-    backbone : str
-        One of BACKBONES ('retfound', 'resnet50', 'dinov2'). Ignored when
-        from_scratch=True.
-    num_classes : int
-        Output head width (5 for the RetinaMNIST grades).
-    pretrained : bool
-        Load pretrained backbone weights. Gated backbones (retfound) refuse a
-        silent download; pass pretrained=False to build the architecture only.
-    freeze_backbone : bool
-        Freeze backbone params (linear-probe). Unfreeze for full fine-tuning.
-    from_scratch : bool
-        Build the torch-only baseline CNN instead of a pretrained backbone.
+    backbone is one of BACKBONES (ignored when from_scratch=True). pretrained
+    loads backbone weights, but gated backbones (retfound) refuse a silent
+    download, so pass pretrained=False to get the architecture only.
+    freeze_backbone gives a linear-probe; unfreeze for full fine-tuning.
+    from_scratch builds the torch-only baseline CNN instead.
 
-    Returns a torch.nn.Module whose .head is a Linear with out_features ==
-    num_classes and which exposes .param_groups(base_lr, head_lr_mult) for
-    discriminative-LR optimisation. Raises ImportError with an install hint when
-    torch (or transformers) is missing.
+    Returns a torch.nn.Module whose .head is a Linear of width num_classes and
+    which exposes .param_groups(base_lr, head_lr_mult) for discriminative-LR
+    optimisation. Raises ImportError when torch (or transformers) is missing.
     """
     _require_torch()
     if from_scratch:

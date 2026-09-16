@@ -1,13 +1,10 @@
 """Pluggable feature transforms, a 'transform ladder' alongside the model ladder.
 
-Which transform is right depends on the DATA and the MODEL:
-  - tree models (RF/XGB/LGBM) are scale-invariant -> 'none'
-  - linear/kernel models are scale-sensitive; skewed features want robust/log/power
-  - z-score ('standard') assumes roughly symmetric data, which skewed clinical
-    labs and metabolite abundances are not
-
-Each factory returns a FRESH sklearn transformer (or the string 'passthrough')
-so it can be dropped into a Pipeline step named 'transform'.
+The right transform depends on both data and model: trees are scale-invariant
+('none'), linear/kernel models are scale-sensitive, and skewed features (clinical
+labs, metabolite abundances) want robust/log/power rather than plain z-score.
+Each factory returns a fresh sklearn transformer (or 'passthrough') to drop into
+a Pipeline step named 'transform'.
 """
 import numpy as np
 from sklearn.pipeline import Pipeline
@@ -29,8 +26,8 @@ DEFAULT_FOR_FAMILY = {'tree': 'none', 'linear': 'standard', 'kernel': 'standard'
 def build_transform(name, n_samples=None):
     """Return a fresh transformer for `name`, or 'passthrough' for none.
 
-    n_samples (optional) lets the quantile transformer cap its quantile count so
-    it stays valid at small n.
+    n_samples lets the quantile transformer cap its quantile count so it stays
+    valid at small n.
     """
     if name in (None, 'none'):
         return 'passthrough'

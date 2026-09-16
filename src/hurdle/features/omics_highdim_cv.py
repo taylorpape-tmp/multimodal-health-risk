@@ -1,26 +1,15 @@
 """Leak-safe cross-validated modeling of the wide omics matrix (S4_HealthyIQR).
 
-omics_highdim.build_highdim_matrix reduces S4 (12k analytes -> 20 PCs) with the
-impute/PCA steps fit on ALL rows. That is fine for EDA but is a mild leak for
-scoring: the held-out patient influences the medians and the principal axes it
-is then projected onto. This module closes that gap.
-
-highdim_cv_score runs leave-one-out (or leave-one-group-out) CV where, INSIDE
-each fold, the whole reduction is fit on TRAIN rows only:
-  prevalence filter -> variance filter -> median impute -> correlation prune
-  -> standardize -> PCA
-The fitted reducer is then APPLIED to the held-out patient, a model is fit on
-the train PCs and predicts the held-out PC vector. The pooled out-of-fold (OOF)
-predictions are scored once. This is the honest number.
-
-leak=True reproduces the optimistic path (reduction fit once on all rows, only
-the model refit per fold) so the optimism gap can be reported honestly side by
-side. optimism_gap() returns both.
-
-Input contract: `s4` is the ORIENTED patient x analyte matrix (NaNs allowed,
-one row per patient) as returned by omics_highdim.orient()[0]; `y` is the
-aligned target vector (same order / index). Keeping NaNs in means the imputer
-can be fit per fold instead of on pre-imputed values.
+build_highdim_matrix fits impute/PCA on all rows, a mild scoring leak since the
+held-out patient shapes the medians and PC axes it is later projected onto; this
+module closes that gap by refitting the whole reduction (prevalence, variance,
+impute, correlation prune, standardize, PCA) on each fold's train rows in
+leave-one-out (or leave-one-group-out) CV, then scoring the pooled out-of-fold
+predictions once. leak=True reproduces the optimistic path (reduction fit once on
+all rows, only the model refit per fold) so optimism_gap() can report both side by
+side. s4 is the oriented patient x analyte matrix (NaNs allowed, kept so the
+imputer can be fit per fold) from omics_highdim.orient()[0] and y is the aligned
+target.
 """
 import numpy as np
 import pandas as pd
@@ -43,12 +32,10 @@ def _fast_medians(X):
 
 
 def _correlation_prune(X, threshold=0.95):
-    """Greedy first-keep correlation prune, identical output to
-    omics_highdim.correlation_prune but with a single vectorized corrcoef and a
-    numpy inner loop (drops a per-fold O(p^2) Python double loop to O(p)).
-
-    Within a highly-correlated cluster the first column (in column order) is kept
-    and the rest dropped, matching the reference's keep-the-first semantics.
+    """Greedy first-keep correlation prune, same output as
+    omics_highdim.correlation_prune but faster (one vectorized corrcoef, numpy
+    inner loop). Within a correlated cluster the first column is kept and the rest
+    dropped.
     """
     corr = np.abs(np.nan_to_num(np.corrcoef(X.values, rowvar=False)))
     cols = list(X.columns)
@@ -68,13 +55,12 @@ def _correlation_prune(X, threshold=0.95):
 
 
 class Reducer:
-    """A reduction fit on a fixed set of training rows, applyable to new rows.
+    """A reduction fit on training rows and applied to new rows.
 
-    Stores exactly the state learned from TRAIN: which analyte columns survive
-    prevalence+variance filtering, the train medians used for imputation, which
-    columns survive correlation pruning, and the fitted scaler + PCA. apply()
-    replays those on any matrix without re-estimating anything, so a held-out
-    patient never influences the transform it is scored through.
+    Holds the state learned from train (surviving columns, medians, pruned columns,
+    scaler, PCA). apply() replays those on any matrix without re-estimating
+    anything, so a held-out patient never influences the transform it is scored
+    through.
     """
 
     def __init__(self, keep_cols, medians, pca_cols, scaler, pca, trace):
@@ -99,10 +85,10 @@ class Reducer:
 
 
 def fit_reduction(X_train, max_missing=0.5, corr_threshold=0.95, n_pca=20, seed=0):
-    """Fit the full S4 reduction on TRAIN rows only; return a Reducer.
+    """Fit the full S4 reduction on train rows only and return a Reducer.
 
-    Every statistic (kept columns, medians, pruned columns, scaling, PC axes)
-    is estimated from X_train and from nothing else.
+    Every statistic (kept columns, medians, pruned columns, scaling, PC axes) comes
+    from X_train and nothing else.
     """
     Xp = hd.prevalence_filter(X_train, max_missing=max_missing)
     after_prevalence = Xp.shape[1]
@@ -168,27 +154,14 @@ def _regression_metrics(y, pred):
 
 def highdim_cv_score(s4, y, groups=None, n_pca=20, model="ridge",
                      max_missing=0.5, corr_threshold=0.95, seed=0, leak=False):
-    """Cross-validated score of the S4 reduction + a regression model.
+    """Cross-validated score of the S4 reduction plus a regression model.
 
-    Parameters
-    ----------
-    s4 : DataFrame
-        Oriented patient x analyte matrix (NaNs allowed), one row per patient.
-    y : array-like
-        Aligned continuous target (e.g. SSPG), same length / order as s4 rows.
-    groups : array-like or None
-        Per-row group id -> leave-one-group-out; None -> leave-one-out.
-    n_pca, model, max_missing, corr_threshold, seed
-        Reduction / model knobs.
-    leak : bool
-        False (default, HONEST): fit the reduction per fold on train rows only.
-        True (LEAKY): fit the reduction once on ALL rows, refit only the model
-        per fold -> reproduces build_highdim_matrix's mild leak for comparison.
-
-    Returns
-    -------
-    dict with the pooled OOF metrics, the OOF prediction vector, the leak flag,
-    and a per-fold trace (train size, surviving-analyte counts, test index).
+    s4 is the oriented patient x analyte matrix (NaNs allowed) and y the aligned
+    continuous target; groups gives leave-one-group-out, None gives leave-one-out.
+    With leak=False (default, honest) the reduction is fit per fold on train rows,
+    while leak=True fits it once on all rows and refits only the model per fold, and
+    the return is a dict with the pooled OOF metrics, OOF predictions, the leak flag,
+    and a per-fold trace.
     """
     X = s4 if isinstance(s4, pd.DataFrame) else pd.DataFrame(s4)
     y = np.asarray(y, dtype=float)
@@ -238,8 +211,8 @@ def optimism_gap(s4, y, groups=None, n_pca=20, model="ridge",
                  max_missing=0.5, corr_threshold=0.95, seed=0):
     """Run both the honest (per-fold) and leaky (all-rows) reductions.
 
-    Returns {'honest': {...}, 'leaky': {...}, 'gap_R2', 'gap_Pearson'} where a
-    positive gap means the leaky number is optimistic relative to the honest one.
+    Returns {'honest', 'leaky', 'gap_R2', 'gap_Pearson'}; a positive gap means the
+    leaky number is optimistic relative to the honest one.
     """
     honest = highdim_cv_score(s4, y, groups=groups, n_pca=n_pca, model=model,
                               max_missing=max_missing, corr_threshold=corr_threshold,
