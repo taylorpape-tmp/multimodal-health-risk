@@ -1,0 +1,6 @@
+modality,standalone_r2,fusion_without_r2,drop_when_removed
+omics,0.782,0.747,0.103
+cgm,0.619,0.826,0.023
+wearable,0.574,0.829,0.020
+imaging,0.307,0.845,0.005
+full_fusion_all4_r2,0.850

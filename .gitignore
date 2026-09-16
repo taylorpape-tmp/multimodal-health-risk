@@ -1,7 +1,10 @@
 data/raw/
 data/raw_data/
-data/interim/
+data/interim/*
 data/*.db
+# the two small cleaned omics matrices the demo image needs are committed
+!data/interim/omics_S8_sspg_clean.csv
+!data/interim/omics_S9_isir_clean.csv
 models/
 .DS_Store
 **/.DS_Store

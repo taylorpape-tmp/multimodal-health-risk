@@ -22,6 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
 serving = ["fastapi", "uvicorn"]
+demo = ["streamlit", "matplotlib", "numpy", "pandas", "scikit-learn", "xgboost"]
 
 [build-system]
 requires = ["setuptools>=68"]

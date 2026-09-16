@@ -1,0 +1,9 @@
+#One-command demo: `docker compose up` builds the image and serves the
+#Streamlit app at http://localhost:8501
+services:
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    ports:
+      - "8501:8501"

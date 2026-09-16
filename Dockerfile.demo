@@ -1,0 +1,33 @@
+#Demo image: runs the Streamlit app so a reviewer can launch the whole thing
+#with one command and no local Python setup. Installs only the demo deps (no
+#torch/transformers, the demo tabs do not touch the CNN). The small cleaned
+#omics matrices and the two report CSVs the app reads are copied in, so the
+#real omics->SSPG tab works out of the box; the fusion tab is fully synthetic.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+#build tools for xgboost/scikit wheels, removed after install to keep the image small
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+#install only the light runtime deps the demo actually imports, then add the
+#hurdle package itself with --no-deps so pip does NOT pull the base project
+#dependencies (torch/torchvision/transformers). The demo import chain (omics
+#features, fusion, virtual cohort, imaging_bridge) is numpy/pandas/sklearn only.
+COPY pyproject.toml ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir streamlit matplotlib numpy pandas scikit-learn xgboost \
+    && pip install --no-cache-dir --no-deps .
+
+#app code and the minimal data the demo reads
+COPY app/ ./app/
+COPY data/interim/omics_S8_sspg_clean.csv data/interim/omics_S9_isir_clean.csv ./data/interim/
+COPY reports/shap_omics_importance.csv reports/modality_ablation.csv ./reports/
+
+ENV PYTHONPATH=/app/src
+EXPOSE 8501
+
+#serve on all interfaces so the host browser can reach it
+CMD ["streamlit", "run", "app/streamlit_app.py", \
+     "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]

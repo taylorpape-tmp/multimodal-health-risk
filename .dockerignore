@@ -5,8 +5,13 @@
 .github
 .gitignore
 
-# Data — never ship raw/interim/processed data into the image
-data/
+# Data — never ship raw data into the image. The demo image needs the two
+# small cleaned omics matrices, so those are allowed back in below.
+data/*
+!data/interim
+data/interim/*
+!data/interim/omics_S8_sspg_clean.csv
+!data/interim/omics_S9_isir_clean.csv
 *.zip
 
 # Infra + docs aren't needed at runtime
