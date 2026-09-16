@@ -7,6 +7,29 @@ engineering (relational store, cloud infrastructure-as-code, CI, tests) built to
 
 Built as a portfolio project for a Biomedical & Health AI Scientist role.
 
+## Quick start
+
+**Run the interactive demo (one command, needs only Docker):**
+
+```bash
+docker compose up
+```
+
+Then open http://localhost:8501. Tab 1 runs the real omics→SSPG result live on
+the cleaned data bundled in the image; Tab 2 is the fusion slider demo on a
+virtual cohort. First build takes a few minutes.
+
+**Run the test suite (needs Python 3.11+):**
+
+```bash
+pip install -e ".[dev]"
+pytest
+```
+
+Tests use small synthetic fixtures, so they need no external data. Full
+reproduction of the headline results (which needs the large public datasets) and
+the repo layout are documented in [HANDOFF.md](HANDOFF.md).
+
 ## Honest framing (read this first)
 
 The four public datasets are **different patients**. No public dataset links all four modalities per
