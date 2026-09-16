@@ -1,8 +1,8 @@
 # Multimodal Diabetes-Risk Pipeline
 
-An end-to-end machine-learning pipeline that integrates **four biomedical data modalities** —
+An end-to-end machine-learning pipeline that integrates **four biomedical data modalities** 
 multi-omics + clinical labs, wearable biosensors, continuous glucose monitoring (CGM), and retinal
-fundus imaging — into a single insulin-resistance / type-2-diabetes risk model, with the supporting
+fundus imaging into a single insulin-resistance / type-2-diabetes risk model, with the supporting
 engineering (relational store, cloud infrastructure-as-code, CI, tests) built to a production register.
 
 Built as a portfolio project for a Biomedical & Health AI Scientist role with PROJECT_REPORT.docx.
