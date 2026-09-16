@@ -30,7 +30,7 @@ Tests use small synthetic fixtures, so they need no external data. Full
 reproduction of the headline results (which needs the large public datasets) and
 the repo layout are documented in [HANDOFF.md](HANDOFF.md).
 
-## Honest framing (read this first)
+## Framing
 
 The four public datasets are **different patients**. No public dataset links all four modalities per
 person. Where cohorts overlap they are used as real anchors (omics ∩ CGM = 22 shared patients via a
