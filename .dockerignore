@@ -1,0 +1,36 @@
+# Keep the build context small and secret-free.
+
+# Version control + CI
+.git
+.github
+.gitignore
+
+# Data — never ship raw/interim/processed data into the image
+data/
+*.zip
+
+# Infra + docs aren't needed at runtime
+infra/
+docs/
+scripts/
+
+# Python caches / build artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tests aren't part of the serving image
+tests/
+
+# Local env / secrets / OS cruft
+.env
+*.tfvars
+.DS_Store
+**/.DS_Store

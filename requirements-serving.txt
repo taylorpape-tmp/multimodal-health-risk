@@ -1,0 +1,11 @@
+# Runtime dependencies for the serving image only (NOT the training stack).
+# Kept minimal + pinned so the image is small and reproducible. RETFound/torch
+# are deliberately excluded — the serving head runs the CPU-tier sklearn models
+# (or a distilled head), so no CUDA/torch in the API container.
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+numpy==2.1.1
+scikit-learn==1.5.2
+joblib==1.4.2
+boto3==1.35.24

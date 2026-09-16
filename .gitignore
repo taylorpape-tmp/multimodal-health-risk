@@ -1,7 +1,16 @@
 data/raw/
+data/raw_data/
 data/interim/
+data/*.db
+models/
 .DS_Store
 **/.DS_Store
 __pycache__/
 *.pyc
 .venv/
+*.zip
+#terraform state + local vars (never commit real account ids/keys)
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars

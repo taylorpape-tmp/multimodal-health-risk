@@ -1,0 +1,73 @@
+# Build the HURDLE serving image and push it to ECR.
+#
+# Auth: GitHub OIDC -> AWS IAM role (no long-lived access keys stored in GitHub).
+# The role ARN and ECR repo come from repo VARIABLES you set once (Settings ->
+# Secrets and variables -> Actions -> Variables), after `terraform apply` prints
+# them as outputs. These are account-scoped identifiers, not secrets, so they
+# live in `vars`, and NOTHING sensitive is hardcoded here.
+#
+# Required repository variables:
+#   AWS_REGION            e.g. eu-west-2
+#   AWS_ROLE_TO_ASSUME    output github_actions_role_arn from terraform
+#   ECR_REPOSITORY        output ecr_repository_url from terraform
+#
+# This workflow is SEPARATE from the test CI; it runs on pushes to main and on
+# manual dispatch only.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "Dockerfile"
+      - "requirements-serving.txt"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+# OIDC needs id-token: write. contents: read to check out the repo.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # Tag with both the immutable commit SHA and moving :latest.
+          tags: |
+            ${{ vars.ECR_REPOSITORY }}:latest
+            ${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "Pushed ${{ vars.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

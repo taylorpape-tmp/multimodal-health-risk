@@ -82,3 +82,18 @@ labels8_clean = labels8[keep8]
 
 print("S8:", analytes8.shape, "->", analytes8_clean.shape, "| NaN:", int(analytes8_clean.isna().sum().sum()))
 print("labels:", labels8_clean.shape, "| SSPG NaN in label row:", int(labels8_clean.isna().sum()))
+
+#save cleaned matrices to data/interim fro SQL
+#transpose -> patients as rows, analytes as columns, label as first column
+interim = Path("data/interim")
+interim.mkdir(parents=True, exist_ok=True)
+
+def save_clean(analytes, labels, label_name, path):
+    X = analytes.T  #patients become rows, analytes become columns
+    X.insert(0, label_name, labels) #first column = the target
+    X.index.name = "SubjectID"
+    X.to_csv(path)
+    print(f"{path.name}: {X.shape[0]} patients x {X.shape[1]-1} analytes (+{label_name})")
+
+save_clean(analytes9_clean, labels9_clean, "IRIS", interim / "omics_S9_isir_clean.csv")
+save_clean(analytes8_clean, labels8_clean, "SSPG", interim / "omics_S8_sspg_clean.csv")

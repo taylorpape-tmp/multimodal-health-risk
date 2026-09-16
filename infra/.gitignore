@@ -1,0 +1,12 @@
+# Local state + real variable values must never be committed.
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+crash.log
+crash.*.log
+# keep the template
+!terraform.tfvars.example

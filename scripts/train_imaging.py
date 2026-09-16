@@ -41,8 +41,8 @@ def train(backbone="resnet50", epochs=15, res=224, lr=1e-3, batch=64,
     npz = f"{data_dir}/retinamnist_224.npz" if res == 224 else f"{data_dir}/retinamnist.npz"
     data = dataset.load_retinamnist(npz, resolution=res)
 
-    train_ds = dataset.RetinaMNIST(data.train_images, data.train_labels, augment=True)
-    val_ds = dataset.RetinaMNIST(data.val_images, data.val_labels, augment=False)
+    train_ds = dataset.RetinaMNIST(data.train_images, data.train_labels)
+    val_ds = dataset.RetinaMNIST(data.val_images, data.val_labels)
     train_dl = DataLoader(train_ds, batch_size=batch, shuffle=True)
     val_dl = DataLoader(val_ds, batch_size=batch)
 
@@ -100,7 +100,7 @@ def _export_embeddings(model, data, dev, path):
     extractor = getattr(model, "features", None) or model
     for split, imgs in (("train", data.train_images), ("val", data.val_images),
                         ("test", data.test_images)):
-        ds = dataset.RetinaMNIST(imgs, np.zeros(len(imgs), int), augment=False)
+        ds = dataset.RetinaMNIST(imgs, np.zeros(len(imgs), int))
         outs = []
         with torch.no_grad():
             for i in range(0, len(ds), 64):
