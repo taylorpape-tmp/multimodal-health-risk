@@ -11,9 +11,9 @@ from pathlib import Path
 #run from the repo root without an editable install: put src on the path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hurdle.features.omics import as_model_frame, build_feature_matrix  # noqa: E402
-from hurdle.ml.linear_models import RidgeModel  # noqa: E402
-from hurdle.ml.tree_models import XGBoostModel  # noqa: E402
+from hurdle.features.omics import as_model_frame, build_feature_matrix  #noqa: E402
+from hurdle.ml.linear_models import RidgeModel  #noqa: E402
+from hurdle.ml.tree_models import XGBoostModel  #noqa: E402
 
 INTERIM = "data/interim"
 

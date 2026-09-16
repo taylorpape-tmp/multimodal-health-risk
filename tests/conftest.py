@@ -1,4 +1,4 @@
-"""Shared synthetic fixtures — deterministic and tiny so the suite is fast and
+"""Shared synthetic fixtures, deterministic and tiny so the suite is fast and
 does not touch real data on disk."""
 import numpy as np
 import pandas as pd

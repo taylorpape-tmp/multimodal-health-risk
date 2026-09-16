@@ -19,7 +19,7 @@ The omics coupling is calibrated to the real linked omics block
 (build_feature_matrix on the cleaned S8/SSPG table, restricted to the shared
 crosswalk patients) so the synthetic coupling reflects real signal structure.
 Wearable and imaging keep their default loadings because no real linked block
-exists for them yet — imaging stays a synthetic placeholder until the retinal
+exists for them yet, imaging stays a synthetic placeholder until the retinal
 CNN is trained on AWS and its embeddings are wired in through imaging_bridge.
 
 FIGURE CAPTION (baked in)
@@ -44,16 +44,16 @@ import pandas as pd
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from hurdle.features.omics import build_feature_matrix  # noqa: E402
-from hurdle.fusion import fusion, virtual_cohort  # noqa: E402
+from hurdle.features.omics import build_feature_matrix  #noqa: E402
+from hurdle.fusion import fusion, virtual_cohort  #noqa: E402
 
 N = 300
 SEED = 0
 INTERIM = REPO / "data" / "interim"
 REPORTS = REPO / "reports"
 #crosswalk copy materialized in the repo from the project artifacts:
-#  shared patients csv  version_id 1934182a-1624-477b-98be-ff7ecc920733
-#  overlap summary json version_id 2912a0a2-abfd-428a-be11-a4539bb4b98e
+#shared patients csv  version_id 1934182a-1624-477b-98be-ff7ecc920733
+#overlap summary json version_id 2912a0a2-abfd-428a-be11-a4539bb4b98e
 SHARED_CSV = INTERIM / "cgm_omics_shared_patients.csv"
 
 
@@ -174,10 +174,10 @@ def write_readme(out_path, used_real, note, loadings, table, verdict):
         "",
         "## The three controls (why this is not circular)",
         "",
-        "1. **best single modality** — fusion must beat the strongest modality alone.",
-        "2. **fusion on scrambled** — break the shared-`z` coupling by permuting each",
+        "1. **best single modality**, fusion must beat the strongest modality alone.",
+        "2. **fusion on scrambled**, break the shared-`z` coupling by permuting each",
         "   modality's rows independently; the fusion advantage must vanish.",
-        "3. **additive baseline** — a standardized hand-sum of modality scores, the",
+        "3. **additive baseline**, a standardized hand-sum of modality scores, the",
         "   baseline to beat. Beating it shows captured cross-modal interaction, not",
         "   addition. It is never used as a training label.",
         "",
@@ -189,7 +189,7 @@ def write_readme(out_path, used_real, note, loadings, table, verdict):
         "",
         "Wearable keeps its default loading (disjoint patient ids, no linked block).",
         "**Imaging is a synthetic placeholder block** until the retinal CNN is trained",
-        "on AWS and its embeddings are wired in via `imaging_bridge` — at which point",
+        "on AWS and its embeddings are wired in via `imaging_bridge`, at which point",
         "the imaging loading will be anchored to the real CNN instead of the default.",
         "",
         "## Results",
@@ -204,9 +204,9 @@ def write_readme(out_path, used_real, note, loadings, table, verdict):
         "",
         "## Files",
         "",
-        "- `reports/fusion_results.csv` — the comparison table above",
-        "- `reports/fusion_verdict.json` — the verdict dict",
-        "- `reports/fusion_comparison.png` — grouped R2 bar chart",
+        "- `reports/fusion_results.csv`, the comparison table above",
+        "- `reports/fusion_verdict.json`, the verdict dict",
+        "- `reports/fusion_comparison.png`, grouped R2 bar chart",
         "",
     ]
     out_path.write_text("\n".join(lines))

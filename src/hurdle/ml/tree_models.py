@@ -9,11 +9,11 @@ import warnings
 
 warnings.filterwarnings("ignore")   #silence lightgbm/sklearn feature-name warnings
 
-from lightgbm import LGBMRegressor  # noqa: E402
-from sklearn.ensemble import RandomForestRegressor  # noqa: E402
-from xgboost import XGBRegressor  # noqa: E402
+from lightgbm import LGBMRegressor  #noqa: E402
+from sklearn.ensemble import RandomForestRegressor  #noqa: E402
+from xgboost import XGBRegressor  #noqa: E402
 
-from .base import MLModel  # noqa: E402
+from .base import MLModel  #noqa: E402
 
 
 class RandomForestModel(MLModel):

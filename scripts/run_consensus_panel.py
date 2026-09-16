@@ -30,11 +30,11 @@ from sklearn.preprocessing import StandardScaler
 #run from the repo root without an editable install: put src on the path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hurdle.feature_selection.nested_consensus import (  # noqa: E402
+from hurdle.feature_selection.nested_consensus import (  #noqa: E402
     ConsensusConfig,
     run_nested_consensus,
 )
-from hurdle.features.omics import as_model_frame, build_feature_matrix  # noqa: E402
+from hurdle.features.omics import as_model_frame, build_feature_matrix  #noqa: E402
 
 INTERIM = "data/interim"
 REPORTS = Path("reports")

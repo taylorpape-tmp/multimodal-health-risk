@@ -22,20 +22,20 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
-import shap  # noqa: E402
+import matplotlib.pyplot as plt  #noqa: E402
+import numpy as np  #noqa: E402
+import pandas as pd  #noqa: E402
+import shap  #noqa: E402
 
 #run from the repo root without an editable install: put src on the path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hurdle.explain.shap_attribution import (  # noqa: E402
+from hurdle.explain.shap_attribution import (  #noqa: E402
     compare_rankings,
     fit_and_explain,
     signal_concentration,
 )
-from hurdle.features.omics import build_feature_matrix  # noqa: E402
+from hurdle.features.omics import build_feature_matrix  #noqa: E402
 
 INTERIM = "data/interim"
 REPORTS = Path("reports")
@@ -89,7 +89,7 @@ def _beeswarm(shap_values, X, feature_names, top_n):
         )
         fig.tight_layout()
         return fig
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  #noqa: BLE001
         print(f"  beeswarm plotting failed ({type(exc).__name__}: {exc}); "
               "falling back to a mean|SHAP| bar chart")
         plt.close("all")

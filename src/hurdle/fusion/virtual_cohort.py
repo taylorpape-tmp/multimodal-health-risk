@@ -5,8 +5,8 @@ THE HONEST FRAMING
 The four public datasets are different people. Omics and CGM share 22 real
 patients (via the crosswalk); wearable and retinal imaging share no patients
 with anyone. So a real all-four-modalities-per-patient matrix does not exist in
-public data. This module constructs a VIRTUAL cohort — synthetic patients that
-carry all four modalities at once — so the fusion pipeline can be demonstrated
+public data. This module constructs a VIRTUAL cohort, synthetic patients that
+carry all four modalities at once, so the fusion pipeline can be demonstrated
 end to end. It is explicitly synthetic and never presented as real individuals.
 
 WHY IT IS NOT CIRCULAR
@@ -17,11 +17,11 @@ model to predict it) is circular: the model just re-learns the sum. Instead:
   1. draw a hidden latent risk z ~ N(0,1) for each synthetic patient FIRST
   2. generate every modality's features FROM z through noisy, calibrated maps
      (high z -> more insulin-resistant omics, more glucose variability, worse
-     retinal grade) — noisy and nonlinear so no single modality reveals z
+     retinal grade), noisy and nonlinear so no single modality reveals z
   3. the model sees ONLY the generated features, never z
   4. truth = z, which was set before any feature existed and is hidden
 
-The model must FUSE the noisy modalities to recover z — a genuine task. The
+The model must FUSE the noisy modalities to recover z, a genuine task. The
 coupling strengths are calibrated to the real 22 where cross-modal correlation
 can actually be measured, so the synthetic patients are not arbitrary.
 

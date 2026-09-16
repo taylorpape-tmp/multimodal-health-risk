@@ -6,9 +6,9 @@
 #each dataset's published data-availability statement.
 
 #Usage:
-#  bash scripts/download_data.sh /download everything
-#  bash scripts/download_data.sh omics /download a single source
-#  bash scripts/download_data.sh /cgm imaging
+#bash scripts/download_data.sh /download everything
+#bash scripts/download_data.sh omics /download a single source
+#bash scripts/download_data.sh /cgm imaging
 #
 #Sources: omics | cgm | imaging | wearable
 
@@ -21,7 +21,7 @@ RAW="${REPO_ROOT}/data/raw"
 #curl flags: -L follow redirects, -f fail on HTTP error, -C - resume if interrupted, --retry for flaky links
 CURL="curl -fL -C - --retry 3 --retry-delay 5"
 
-#writes a .sha256 next to the file 
+#writes a .sha256 next to the file
 checksum () {
   local f="$1"
   if command -v sha256sum >/dev/null 2>&1; then

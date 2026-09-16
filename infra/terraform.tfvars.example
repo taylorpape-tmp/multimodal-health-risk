@@ -1,29 +1,29 @@
-# terraform.tfvars.example — copy to terraform.tfvars and fill in YOUR values.
-#   cp terraform.tfvars.example terraform.tfvars
-# terraform.tfvars is gitignored (see infra/.gitignore) — real IDs never commit.
-# NONE of these are secrets, but the account/project IDs are yours; keep them local.
+#terraform.tfvars.example, copy to terraform.tfvars and fill in YOUR values.
+#cp terraform.tfvars.example terraform.tfvars
+#terraform.tfvars is gitignored (see infra/.gitignore), real IDs never commit.
+#NONE of these are secrets, but the account/project IDs are yours; keep them local.
 
-# ---------- AWS ----------
-aws_region     = "eu-west-2"        # London; change to your region
-aws_account_id = "123456789012"     # <-- YOUR 12-digit AWS account ID
+#AWS
+aws_region     = "eu-west-2" #London; change to your region
+aws_account_id = "123456789012" #<-- YOUR 12-digit AWS account ID
 
-# ---------- GPU training (RETFound ViT-L) ----------
+#GPU training (RETFound ViT-L)
 enable_gpu_training = true
-gpu_instance_type   = "g4dn.xlarge" # T4 16GB, cheapest that fits ViT-L; g5.xlarge = A10G 24GB
-gpu_spot_max_price  = ""            # "" => cap at on-demand price; or e.g. "0.40"
-ssh_ingress_cidr    = "203.0.113.7/32" # <-- YOUR public IP /32 (curl ifconfig.me). Prefer SSM instead.
-# training_vpc_id   = "vpc-0abc123"  # optional; empty => default VPC
+gpu_instance_type   = "g4dn.xlarge" #T4 16GB, cheapest that fits ViT-L; g5.xlarge = A10G 24GB
+gpu_spot_max_price  = "" #"" => cap at on-demand price; or e.g. "0.40"
+ssh_ingress_cidr    = "203.0.113.7/32" #<-- YOUR public IP /32 (curl ifconfig.me). Prefer SSM instead.
+#training_vpc_id   = "vpc-0abc123"  # optional; empty => default VPC
 
-# ---------- CI/CD (GitHub OIDC -> AWS) ----------
-github_owner                = "your-github-username" # <-- e.g. taylorpape
+#CI/CD (GitHub OIDC -> AWS)
+github_owner                = "your-github-username" #<-- e.g. taylorpape
 github_repo                 = "HURDLE"
-create_github_oidc_provider = true                    # false if the provider already exists in your account
+create_github_oidc_provider = true #false if the provider already exists in your account
 
-# ---------- GCP ----------
-gcp_project_id    = "your-gcp-project-id" # <-- the ID, not the number
+#GCP
+gcp_project_id    = "your-gcp-project-id" #<-- the ID, not the number
 gcp_region        = "europe-west2"
 bigquery_location = "EU"
 
-# ---------- Global ----------
+#Global
 environment = "dev"
 name_prefix = "hurdle"

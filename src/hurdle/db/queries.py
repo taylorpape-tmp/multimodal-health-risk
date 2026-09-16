@@ -1,4 +1,4 @@
-"""Query helpers — the JOINs that turn the normalized store back into modeling
+"""Query helpers, the JOINs that turn the normalized store back into modeling
 matrices. This is the payoff of the SQL layer: one query assembles the feature
 matrix instead of stitching DataFrames by hand.
 """

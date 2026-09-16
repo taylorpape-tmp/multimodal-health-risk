@@ -1,31 +1,42 @@
-"""Smoke tests for the HURDLE Streamlit demo UI.
+"""Smoke tests for the HURDLE Streamlit results UI.
 
 These use streamlit.testing.v1.AppTest to run the app headlessly. The app is now
 two tabs:
   Tab 1 "Real result (omics -> SSPG)" -- leave-one-out XGBoost on 59 real
-        patients / real measured SSPG. Must compute a finite R2 metric.
+        patients / real measured SSPG, plus a label-permutation null test and
+        accumulated-local-effects (ALE) figures. Must compute a finite R2 and a
+        finite permutation p-value.
   Tab 2 "Fusion demo (virtual cohort)" -- the slider playground; Predict must
         still run and emit a finite numeric fused score.
 
 AppTest renders the content of ALL tabs in one pass (tabs are not lazily
 evaluated by the headless runner), so widgets and metrics from both tabs are
-reachable on the elements lists. Kept fast by relying on the app's caches.
+reachable on the elements lists. Kept fast by relying on the app's caches and by
+shrinking the permutation count via HURDLE_NPERM for the test process.
 """
+import os
 import re
 from pathlib import Path
 
 import numpy as np
-from streamlit.testing.v1 import AppTest
+
+#keep the permutation loop tiny under test: the null distribution shape is not
+#asserted, only that a finite p-value is produced. Set before AppTest imports the
+#app so the module-level N_PERM picks it up.
+os.environ.setdefault("HURDLE_NPERM", "8")
+
+from streamlit.testing.v1 import AppTest  #noqa: E402
 
 APP_PATH = str(Path(__file__).resolve().parents[1] / "app" / "streamlit_app.py")
 
-#generous timeout: first run computes the 59-patient LOO loop (~20-60s) and
-#builds the virtual-cohort predictor before either is cached
-_TIMEOUT = 180
+#generous timeout: first run computes the 59-patient LOO loop (~20-60s), the
+#permutation null, and builds the virtual-cohort predictor before caching
+_TIMEOUT = 300
 
 
 def _run():
-    #run the app headlessly with a timeout that covers the first LOO + build
+    #run the app headlessly with a timeout that covers the first LOO + null +
+    #predictor build (all cached after the first run)
     at = AppTest.from_file(APP_PATH, default_timeout=_TIMEOUT)
     at.run()
     return at
@@ -51,8 +62,8 @@ def test_app_loads_without_exception():
     #the app renders and surfaces the honesty banner, no uncaught exception
     at = _run()
     assert not at.exception
-    banners = " ".join(w.value for w in at.warning)
-    assert "NOT a validated clinical tool" in banners
+    banners = " ".join(w.value for w in at.warning).lower()
+    assert "not a validated clinical tool" in banners
 
 
 def test_two_tabs_present_with_provenance_labels():
@@ -69,17 +80,30 @@ def test_tab1_real_metrics_compute_finite_r2():
     at = _run()
     assert not at.exception
 
-    #the real-data provenance is labelled explicitly (green success banner)
-    success_text = " ".join(s.value for s in at.success)
-    assert "REAL DATA" in success_text
-
-    #an "R2 (leave-one-out)" metric is rendered with a finite numeric value
-    r2_metrics = [m for m in at.metric if "R2" in str(m.label)]
-    assert r2_metrics, "no R2 metric rendered in the real-data tab"
+    #an R2 leave-one-out metric is rendered with a finite numeric value. The
+    #label uses a superscript (R²), so match on "leave-one-out" not "R2".
+    r2_metrics = [m for m in at.metric
+                  if "leave-one-out" in str(m.label).lower()
+                  and ("²" in str(m.label) or "R2" in str(m.label))]
+    assert r2_metrics, "no leave-one-out R2 metric rendered in the real tab"
     r2_val = float(r2_metrics[0].value)
     assert np.isfinite(r2_val), f"R2 metric not finite: {r2_metrics[0].value}"
     #real omics -> SSPG lands ~0.46-0.50; assert it's a sane, positive R2
     assert 0.2 < r2_val < 0.9, f"real LOO R2 out of expected range: {r2_val}"
+
+
+def test_tab1_permutation_p_is_finite():
+    #Tab 1 must render the permutation-null result with a finite p-value metric
+    at = _run()
+    assert not at.exception
+
+    p_metrics = [m for m in at.metric
+                 if "permutation p" in str(m.label).lower()]
+    assert p_metrics, "no permutation p-value metric rendered"
+    p_val = float(p_metrics[0].value)
+    assert np.isfinite(p_val), f"permutation p not finite: {p_metrics[0].value}"
+    #empirical p from (count + 1) / (n_perm + 1) is a valid probability
+    assert 0.0 < p_val <= 1.0, f"permutation p out of range: {p_val}"
 
 
 def test_predict_button_produces_finite_risk():

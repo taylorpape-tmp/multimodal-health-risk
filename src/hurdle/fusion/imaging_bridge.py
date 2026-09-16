@@ -3,7 +3,7 @@
 train_imaging.py exports per-image embeddings (models/imaging_embeddings.npz).
 This module turns those raw embeddings (e.g. 2048-dim for ResNet-50) into a
 compact imaging feature block and uses their statistics to anchor the virtual
-cohort's imaging modality — so the imaging block is driven by the REAL CNN, not
+cohort's imaging modality, so the imaging block is driven by the REAL CNN, not
 a purely synthetic draw. The per-patient join remains virtual (RetinaMNIST is
 anonymized and shares no patients with omics/CGM), and that is stated plainly.
 """

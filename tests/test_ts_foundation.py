@@ -28,7 +28,7 @@ def model():
     pytest.importorskip("momentfm")
     try:
         return load_ts_model()
-    except Exception as exc:                        # noqa: BLE001
+    except Exception as exc:                        #noqa: BLE001
         pytest.skip(f"foundation model unavailable: {exc}")
 
 

@@ -3,7 +3,7 @@
 S4 is the genuinely high-dimensional block: 12,380 analytes x ~89 patients. The
 study's S8/S9 panels are a ready-made selection; this module instead demonstrates
 a de-novo pipeline for reducing a wide, small-n matrix to a modeling set without
-leaking — the 'advanced statistical skills for large databases' skill.
+leaking, the 'advanced statistical skills for large databases' skill.
 
 Pipeline (each step is a pure function so it can be tested in isolation):
   1. orient            transpose to patients x analytes, join labels via crosswalk
@@ -103,8 +103,7 @@ def build_highdim_matrix(s4, max_missing=0.5, corr_threshold=0.95,
     explained-variance vector, and a step-by-step count trace.
 
     Leakage note: prevalence/variance/correlation pruning are label-free and safe
-    on all rows. Imputation and PCA are FIT on all rows here for convenience —
-    that is acceptable for descriptive reporting but is a mild leak for scoring,
+    on all rows. Imputation and PCA are FIT on all rows here for convenience, that is acceptable for descriptive reporting but is a mild leak for scoring,
     so inside cross-validation call the step functions per-fold instead (fit
     impute()/pca_embed() on train rows, apply to the held-out rows).
     """

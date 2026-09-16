@@ -1,7 +1,7 @@
 """Honest benchmark: hand-crafted time-series features vs foundation-model
 embeddings vs both, under the same leave-one-out Ridge harness.
 
-Two modalities, two DIFFERENT kinds of target — labelled honestly:
+Two modalities, two DIFFERENT kinds of target, labelled honestly:
 
   CGM  (real clinical target).  57 Hall-2018 CGM subjects; 19 of them link to
        the omics cohort by site code and carry a measured SSPG (steady-state
@@ -37,9 +37,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from hurdle.features.cgm import build_cgm_matrix  # noqa: E402
-from hurdle.features.wearable import build_wearable_matrix  # noqa: E402
-from hurdle.ml.linear_models import RidgeModel  # noqa: E402
+from hurdle.features.cgm import build_cgm_matrix  #noqa: E402
+from hurdle.features.wearable import build_wearable_matrix  #noqa: E402
+from hurdle.ml.linear_models import RidgeModel  #noqa: E402
 
 INTERIM = ROOT / "data" / "interim"
 CGM_RAW = ROOT / "data" / "raw" / "cgm" / "hall2018_cgm_S1_Data"

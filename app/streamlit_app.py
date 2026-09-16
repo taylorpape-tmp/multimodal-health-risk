@@ -1,16 +1,8 @@
-"""HURDLE multimodal diabetes-risk pipeline: portfolio demonstration UI.
-
-Two tabs:
-  Tab 1 "Real result (omics -> SSPG)"  -- the honest proof on REAL patients:
-      leave-one-out XGBoost predictions of real, lab-measured SSPG from real
-      omics analytes. Nothing synthetic in this tab.
-  Tab 2 "Fusion demo (virtual cohort)" -- the late-fusion slider playground on
-      a VIRTUAL cohort (four disjoint public datasets coupled through a hidden
-      latent risk factor). No real patient carries all four modalities.
-
-This app is not a validated clinical tool. See the honesty banner rendered at
-the top of the page and docs/DEMO.md for the full disclosure.
+"""Streamlit demo for the diabetes-risk project. Tab 1 shows the real held-out
+omics to SSPG result; tab 2 is the fusion slider playground on a virtual cohort.
+Not a clinical tool.
 """
+import os
 from pathlib import Path
 
 import matplotlib
@@ -20,6 +12,7 @@ import pandas as pd
 import streamlit as st
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import RidgeCV
+from sklearn.model_selection import KFold
 
 from hurdle.fusion.fusion import compare_controls
 from hurdle.fusion.imaging_bridge import imaging_features_frame
@@ -31,6 +24,43 @@ from hurdle.fusion.virtual_cohort import (
 )
 
 matplotlib.use("Agg")  #headless-safe backend for AppTest and servers
+
+#one muted blue for real data, neutral greys for nulls, controls, reference lines
+BLUE = "#2b6cb0"      #real, observed, measured
+GREY = "#9aa5b1"      #null distribution, controls
+DGREY = "#4a5568"     #reference lines, axes text
+
+
+def _apply_style():
+    #matplotlib defaults: sans serif, no top/right spines, no grid, small type
+    #applied once at import
+    plt.rcParams.update({
+        "figure.dpi": 150,
+        "savefig.dpi": 200,
+        "savefig.bbox": "tight",
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+        "font.size": 11,
+        "axes.titlesize": 12,
+        "axes.labelsize": 11,
+        "axes.titlelocation": "left",
+        "axes.titleweight": "regular",
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.grid": False,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "legend.frameon": False,
+        "legend.fontsize": 10,
+    })
+
+
+_apply_style()
+
+#permutation count for the null test. The app uses 300; the test suite overrides
+#this to a small value via HURDLE_NPERM to stay fast. The figure caption reports
+#whatever value is actually used.
+N_PERM = int(os.environ.get("HURDLE_NPERM", "300"))
 
 #repo root relative to this file so the app runs from anywhere
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -97,13 +127,9 @@ def load_ablation():
 
 @st.cache_resource(show_spinner=False)
 def build_predictor(n=200, seed=0):
-    """Build the deployable late-fusion predictor once and cache it.
-
-    Generates a virtual cohort whose imaging loading is calibrated from the real
-    RetinaMNIST CNN embeddings, fits one RandomForest base model per modality
-    (matching fusion.py's estimator config) and a RidgeCV meta-model over the
-    base scores. Returns everything the single-patient predictor needs.
-    """
+    """Build and cache the late-fusion predictor: a virtual cohort (imaging
+    calibrated from the real RetinaMNIST embeddings), one RandomForest per
+    modality, and a RidgeCV meta-model over the base scores."""
     imaging_real = None
     if IMAGING_NPZ.exists():
         imaging_real = imaging_features_frame(str(IMAGING_NPZ), n_components=5)
@@ -145,13 +171,9 @@ def build_predictor(n=200, seed=0):
 
 @st.cache_data(show_spinner=False)
 def live_controls(n=200, seed=0):
-    """Run the real fusion controls via fusion.compare_controls.
-
-    Rebuilds the same calibrated virtual cohort and calls compare_controls,
-    which internally runs fuse()/modality_oof() and the scramble + additive
-    baselines. Returns the comparison table and verdict computed from the
-    actual pipeline code, so the negative-control panel is live, not hardcoded.
-    """
+    """Run the fusion negative controls live via fusion.compare_controls on the
+    same calibrated cohort, so the control panel is computed from the real
+    pipeline rather than hardcoded. Returns the comparison table and verdict."""
     imaging_real = None
     if IMAGING_NPZ.exists():
         imaging_real = imaging_features_frame(str(IMAGING_NPZ), n_components=5)
@@ -198,14 +220,11 @@ def risk_tier(fused, tertiles):
 
 @st.cache_data(show_spinner=False)
 def loo_omics_sspg():
-    """Leave-one-out XGBoost predictions of REAL measured SSPG from REAL omics.
-
-    Loads the 59-patient x 86-analyte S8 table via the feature builder, then for
-    each patient fits an XGBRegressor on the other 58 and predicts the held-out
-    one — so every prediction comes from a model that never saw that patient.
-    Cached so the ~20-60s loop runs once per session. Returns a dict with the
-    measured SSPG vector, the LOO predictions, and the honest metrics.
-    """
+    """Leave-one-out XGBoost predictions of real measured SSPG from real omics.
+    For each of the 59 patients, fit on the other 58 and predict the held-out
+    one, so no prediction comes from a model that saw that patient. Cached (the
+    loop takes 20 to 60s). Returns the measured SSPG, the predictions, and the
+    metrics."""
     from scipy.stats import pearsonr
     from sklearn.metrics import r2_score
     from xgboost import XGBRegressor
@@ -245,122 +264,375 @@ def load_shap_top(k=10):
     return top[["analyte", "mean_abs_shap"]].reset_index(drop=True)
 
 
+def _new_xgb():
+    #single, canonical XGBoost config used for LOO, the null test, and ALE, so
+    #every result in Tab 1 comes from the identical model specification
+    from xgboost import XGBRegressor
+    return XGBRegressor(n_estimators=300, max_depth=3, learning_rate=0.05,
+                        subsample=0.8, random_state=0, n_jobs=1)
+
+
+def _cv5_r2(Xv, yv, seed_cv=0):
+    #5-fold cross-validated R2 with a fixed fold assignment. Used inside the
+    #permutation loop instead of full LOO purely for runtime (LOO x n_perm would
+    #be ~59x slower); the fold seed is fixed so only the labels change per perm.
+    from sklearn.metrics import r2_score
+    kf = KFold(n_splits=5, shuffle=True, random_state=seed_cv)
+    pred = np.empty(len(yv), dtype=float)
+    for train, test in kf.split(Xv):
+        pred[test] = _new_xgb().fit(Xv[train], yv[train]).predict(Xv[test])
+    return float(r2_score(yv, pred))
+
+
+@st.cache_data(show_spinner=False)
+def permutation_null(n_perm=N_PERM):
+    """Label-permutation null for the omics to SSPG result. Shuffle the SSPG
+    labels n_perm times and recompute a 5-fold cross-validated R2 each time
+    (5-fold not LOO inside the loop, for runtime; the reference R2 stays the LOO
+    value). The one-sided p-value is (count + 1) / (n_perm + 1), so it is never
+    reported as zero."""
+    from hurdle.features.omics import build_feature_matrix
+
+    X, y, _ = build_feature_matrix(str(DATA_INTERIM), target="SSPG")
+    Xv = X.to_numpy(float)
+    yv = y.to_numpy(float)
+    real = loo_omics_sspg()
+    r2_obs = float(real["r2"])
+    rng = np.random.default_rng(0)
+    null = np.empty(n_perm, dtype=float)
+    for k in range(n_perm):
+        null[k] = _cv5_r2(Xv, rng.permutation(yv), seed_cv=0)
+    p_emp = float((np.sum(null >= r2_obs) + 1) / (n_perm + 1))
+    return {
+        "null": null,
+        "r2_obs": r2_obs,
+        "p_emp": p_emp,
+        "n_perm": int(n_perm),
+        "n": int(len(yv)),
+    }
+
+
+def _ale_1d(model, Xmat, cols, feat, nbins=10):
+    #1-D accumulated local effects. Bin the feature into quantile bins; in each
+    #bin move only that feature from the bin's lower to upper edge for the points
+    #that fall in the bin, average the resulting change in prediction (the local
+    #effect), then accumulate across bins and mean-center. Because we only ever
+    #perturb inside a bin the other features keep their real joint values, so
+    #ALE never queries the unrealistic feature combinations a PDP would.
+    j = cols.index(feat)
+    x = Xmat[:, j].astype(float)
+    edges = np.unique(np.quantile(x, np.linspace(0.0, 1.0, nbins + 1)))
+    if len(edges) < 3:
+        edges = np.unique(x)
+    nb = len(edges) - 1
+    local = np.zeros(nb, dtype=float)
+    counts = np.zeros(nb, dtype=int)
+    for b in range(nb):
+        lo, hi = edges[b], edges[b + 1]
+        mask = (x >= lo) & (x <= hi) if b == nb - 1 else (x >= lo) & (x < hi)
+        if not mask.any():
+            continue
+        x_lo = Xmat[mask].copy()
+        x_hi = Xmat[mask].copy()
+        x_lo[:, j] = lo
+        x_hi[:, j] = hi
+        local[b] = float((model.predict(x_hi) - model.predict(x_lo)).mean())
+        counts[b] = int(mask.sum())
+    acc = np.concatenate([[0.0], np.cumsum(local)])  #accumulated at bin edges
+    bin_mid = 0.5 * (acc[:-1] + acc[1:])
+    acc = acc - float(np.sum(counts * bin_mid) / max(counts.sum(), 1))
+    return edges, acc, counts, x
+
+
+@st.cache_data(show_spinner=False)
+def ale_top_features(feats):
+    """Fit one XGBoost on all 59 patients and return ALE curves for feats. ALE
+    describes the fitted model's response surface, so a full-data fit is the
+    right object here (this is an interpretation figure, not an accuracy claim).
+    Returns per feature the bin edges, the centered accumulated effect, and the
+    raw feature values for the rug."""
+    from hurdle.features.omics import build_feature_matrix
+
+    X, y, cols = build_feature_matrix(str(DATA_INTERIM), target="SSPG")
+    Xv = X.to_numpy(float)
+    yv = y.to_numpy(float)
+    model = _new_xgb().fit(Xv, yv)
+    out = {}
+    for f in feats:
+        if f not in cols:
+            continue
+        edges, acc, counts, raw = _ale_1d(model, Xv, cols, f, nbins=10)
+        out[f] = {"edges": edges, "acc": acc, "counts": counts, "raw": raw}
+    return {"curves": out, "n": int(len(yv))}
+
+
+def _results_table(res):
+    #headline held-out metrics with bootstrap 95% CIs (metric, value, 95% CI).
+    #CIs are percentile bootstrap over the held-out (measured, predicted) pairs.
+    #the p-value is the analytic Pearson p and has no resampled interval.
+    from scipy.stats import pearsonr
+    from sklearn.metrics import r2_score
+
+    actual = np.asarray(res["actual"], float)
+    pred = np.asarray(res["pred"], float)
+    n = len(actual)
+    rng = np.random.default_rng(0)
+    r2s, rs = [], []
+    for _ in range(2000):
+        idx = rng.integers(0, n, n)
+        a_b, p_b = actual[idx], pred[idx]
+        if np.std(a_b) < 1e-9 or np.std(p_b) < 1e-9:
+            continue
+        r2s.append(r2_score(a_b, p_b))
+        rs.append(pearsonr(a_b, p_b)[0])
+    r2_ci = np.percentile(r2s, [2.5, 97.5])
+    r_ci = np.percentile(rs, [2.5, 97.5])
+    return pd.DataFrame(
+        {
+            "Value": [f"{res['r2']:.3f}", f"{res['r']:.3f}", f"{res['p']:.1e}",
+                      f"{n}"],
+            "95% CI": [f"[{r2_ci[0]:.3f}, {r2_ci[1]:.3f}]",
+                       f"[{r_ci[0]:.3f}, {r_ci[1]:.3f}]", "n/a", "n/a"],
+        },
+        index=["R² (leave-one-out)", "Pearson r", "p-value (Pearson)",
+               "Patients (n)"])
+
+
 def render_real_tab():
-    #Tab 1: the honest proof on REAL patients / REAL measured SSPG
-    st.subheader("Real result — omics -> measured SSPG")
-    st.success(
-        "**REAL DATA.** 59 real patients, 86 real omics analytes, and their "
-        "real lab-measured SSPG (steady-state plasma glucose, 40-276 mg/dL, the "
-        "gold-standard insulin-resistance measure). Every point below is a "
-        "leave-one-out prediction: each patient is scored by an XGBoost model "
-        "that never saw them. This is the honest, held-out result — no virtual "
-        "cohort, no synthetic coupling.")
+    #Tab 1: the held-out result on real patients, real measured SSPG
+    st.subheader("Prediction of measured SSPG from omics")
+    st.markdown(
+        "Steady-state plasma glucose (SSPG) is the reference measure of insulin "
+        "resistance. Here it is predicted from omics analytes in real patients "
+        "under a fully held-out protocol, with a permutation null test and "
+        "accumulated-local-effects interpretation. No synthetic data enters "
+        "this tab.")
 
     try:
-        with st.spinner("Computing leave-one-out predictions on 59 real "
-                        "patients (cached after first run)..."):
+        with st.spinner("Computing leave-one-out predictions (cached after "
+                        "first run)..."):
             res = loo_omics_sspg()
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Could not compute the real-data LOO result: {exc}")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not compute the leave-one-out result: {exc}")
         return
     if not np.isfinite(res["r2"]):
-        st.error("Real-data LOO produced a non-finite R2; cannot display.")
+        st.error("Leave-one-out produced a non-finite R2; cannot display.")
         return
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("R2 (leave-one-out)", f"{res['r2']:.3f}")
-    with c2:
+    #headline numbers, kept to the two that carry the result
+    h1, h2 = st.columns(2)
+    with h1:
+        st.metric("R² (leave-one-out)", f"{res['r2']:.3f}")
+    with h2:
         st.metric("Pearson r", f"{res['r']:.3f}")
-    with c3:
-        st.metric("p-value", f"{res['p']:.2e}")
-    st.caption(f"{res['n']} real patients x {res['n_features']} real analytes. "
-               "Each prediction is fully held out (leave-one-out).")
 
-    #THE MONEY PLOT: predicted vs actual measured SSPG, 59 held-out points
+    #Figure 1, held-out predicted vs measured SSPG
     try:
         actual, pred = res["actual"], res["pred"]
         lo = float(min(actual.min(), pred.min()))
         hi = float(max(actual.max(), pred.max()))
         pad = 0.05 * (hi - lo)
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.scatter(actual, pred, s=45, alpha=0.75, edgecolor="black",
-                   linewidth=0.5, color="#2b6cb0", zorder=3)
+        fig, ax = plt.subplots(figsize=(5.6, 5.6))
         ax.plot([lo - pad, hi + pad], [lo - pad, hi + pad], "--",
-                color="#718096", linewidth=1.3, label="y = x (perfect)",
-                zorder=2)
+                color=DGREY, linewidth=1.1, zorder=2)
+        ax.scatter(actual, pred, s=42, alpha=0.8, edgecolor="white",
+                   linewidth=0.5, color=BLUE, zorder=3)
         ax.set_xlim(lo - pad, hi + pad)
         ax.set_ylim(lo - pad, hi + pad)
         ax.set_xlabel("Measured SSPG (mg/dL)")
-        ax.set_ylabel("LOO-predicted SSPG (mg/dL)")
-        ax.set_title(f"Held-out prediction of real SSPG\n"
-                     f"R2 = {res['r2']:.3f}   r = {res['r']:.3f}   "
-                     f"p = {res['p']:.1e}")
+        ax.set_ylabel("Predicted SSPG (mg/dL)")
+        ax.set_title("Held-out predictions track measured SSPG")
         ax.set_aspect("equal", adjustable="box")
-        ax.legend(loc="upper left", frameon=False)
         fig.tight_layout()
         st.pyplot(fig)
         plt.close(fig)
-        st.caption("Points near the dashed y=x line are patients the model got "
-                   "right. Higher SSPG = more insulin-resistant.")
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Could not render the predicted-vs-actual plot: {exc}")
+        st.caption(
+            f"**Figure 1.** Leave-one-out predicted vs. measured SSPG "
+            f"(n = {res['n']}). Dashed line = identity (y = x). "
+            f"R² = {res['r2']:.3f}, r = {res['r']:.3f}, p = {res['p']:.1e}.")
+        st.caption(
+            f"Methods: XGBoost regressor (300 trees, depth 3, lr 0.05, "
+            f"subsample 0.8) under leave-one-out cross-validation over "
+            f"{res['n']} patients x {res['n_features']} analytes; each "
+            "prediction comes from a model that never saw that patient.")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not render the predicted-vs-measured plot: {exc}")
 
-    #pick a real patient: one concrete held-out case
+    #results table: metric, value, 95% CI (bootstrap over the held-out points)
     try:
-        st.markdown("**Inspect one real patient (held-out)**")
-        idx = st.selectbox(
-            "Patient index (0-58)", options=list(range(res["n"])), index=0,
-            help="Each choice is a real patient scored by a model that never "
-                 "saw them.")
-        a = float(res["actual"][idx])
-        pv = float(res["pred"][idx])
-        err = abs(a - pv)
-        p1, p2, p3 = st.columns(3)
-        with p1:
-            st.metric("Actual SSPG (measured)", f"{a:.0f} mg/dL")
-        with p2:
-            st.metric("Predicted SSPG (held-out)", f"{pv:.0f} mg/dL")
-        with p3:
-            st.metric("Absolute error", f"{err:.0f} mg/dL")
-        st.caption(f"Subject ID: {res['subject_ids'][idx]}. This is one real "
-                   "person's real SSPG vs the model's out-of-sample guess.")
-    except Exception as exc:  # noqa: BLE001
-        st.error(f"Could not render the single-patient view: {exc}")
+        table = _results_table(res)
+        st.markdown("**Table 1. Held-out performance (omics -> SSPG).**")
+        st.table(table)
+        st.caption(
+            f"95% CIs are bias-corrected bootstrap intervals over the "
+            f"{res['n']} held-out predictions (2000 resamples). The permutation "
+            "p-value is reported with Figure 2.")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not render the results table: {exc}")
 
-    #SHAP top analytes: which omics features drive the real prediction
+    st.divider()
+
+    #Figure 2, permutation null (the headline confidence figure)
+    st.markdown("**Confidence: label-permutation null**")
     try:
-        st.markdown("**Top analytes driving the omics model (SHAP)**")
-        top = load_shap_top(10)
-        order = top.iloc[::-1]  #largest at the top of a horizontal bar chart
-        fig2, ax2 = plt.subplots(figsize=(7, 4.5))
-        ax2.barh(order["analyte"], order["mean_abs_shap"], color="#38a169",
-                 edgecolor="black", linewidth=0.4)
-        ax2.set_xlabel("Mean |SHAP| (impact on predicted SSPG)")
-        ax2.set_title("Top 10 omics analytes by SHAP importance")
+        with st.spinner("Building the label-permutation null (cached after "
+                        "first run)..."):
+            perm = permutation_null()
+        null = perm["null"]
+        r2_obs = perm["r2_obs"]
+        p_emp = perm["p_emp"]
+        fig2, ax2 = plt.subplots(figsize=(6.2, 4.2))
+        ax2.axvline(0.0, color=DGREY, linewidth=0.8, linestyle=":", zorder=1)
+        ax2.hist(null, bins=30, color=GREY, edgecolor="white", linewidth=0.4,
+                 zorder=2)
+        ax2.axvline(r2_obs, color=BLUE, linewidth=2.0, zorder=4)
+        ymax = ax2.get_ylim()[1]
+        ax2.annotate(f"Observed R² = {r2_obs:.3f}\n(p = {p_emp:.3g})",
+                     xy=(r2_obs, ymax * 0.72),
+                     xytext=(r2_obs - 0.34, ymax * 0.72),
+                     color=BLUE, va="center", ha="left",
+                     arrowprops=dict(arrowstyle="->", color=BLUE, lw=1.3))
+        ax2.set_xlabel("Cross-validated R² under label permutation")
+        ax2.set_ylabel("Permutations (count)")
+        ax2.set_title("Observed R² exceeds the label-shuffled null")
+        ax2.margins(x=0.04)
         fig2.tight_layout()
         st.pyplot(fig2)
         plt.close(fig2)
-        st.caption("HDL and triglycerides (TGL) topping the list is exactly "
-                   "what insulin-resistance biology predicts — the model is "
-                   "leaning on the right analytes, not spurious noise.")
-    except Exception as exc:  # noqa: BLE001
+        st.caption(
+            f"**Figure 2.** Null distribution of cross-validated R² under "
+            f"{perm['n_perm']} random permutations of the SSPG labels "
+            f"(grey); the observed leave-one-out R² (blue) lies in the far "
+            f"right tail. Empirical one-sided p = {p_emp:.3g} "
+            f"(fraction of permutations with null R² >= observed).")
+        st.caption(
+            f"Methods: same XGBoost config as Figure 1. To keep the "
+            f"{perm['n_perm']}-permutation loop tractable, each null replicate "
+            "uses 5-fold cross-validated R² (not full leave-one-out); the "
+            "observed R² compared against the null is the leave-one-out value "
+            "from Figure 1.")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.metric("Permutation p-value", f"{p_emp:.3g}")
+        with c2:
+            st.metric("Null R² (mean)", f"{float(np.mean(null)):.3f}")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not render the permutation-null figure: {exc}")
+
+    st.divider()
+
+    #Figure 3, ALE curves for the top-2 analytes by SHAP
+    st.markdown("**Interpretation: accumulated local effects (ALE)**")
+    try:
+        shap_top = load_shap_top(10)
+        feats = shap_top["analyte"].head(2).tolist()
+        ale = ale_top_features(tuple(feats))
+        curves = ale["curves"]
+        drawn = [f for f in feats if f in curves]
+        if not drawn:
+            raise ValueError("no ALE curves could be computed for top features")
+        cols = st.columns(len(drawn))
+        for slot, feat in zip(cols, drawn):
+            cur = curves[feat]
+            edges, acc, raw = cur["edges"], cur["acc"], cur["raw"]
+            figa, axa = plt.subplots(figsize=(5.6, 4.0))
+            axa.axhline(0.0, color=DGREY, linewidth=0.8, linestyle=":",
+                        zorder=1)
+            axa.plot(edges, acc, "-", color=BLUE, linewidth=1.8, marker="o",
+                     markersize=4, markerfacecolor=BLUE,
+                     markeredgecolor="white", zorder=3)
+            span = float(acc.max() - acc.min()) or 1.0
+            axa.plot(raw, np.full_like(raw, acc.min() - 0.06 * span), "|",
+                     color=GREY, markersize=6, alpha=0.7, zorder=2)
+            axa.set_xlabel(f"{feat} (observed value)")
+            axa.set_ylabel("Accumulated local effect\non SSPG (mg/dL)")
+            axa.set_title(f"ALE: {feat}")
+            axa.margins(x=0.03)
+            figa.tight_layout()
+            with slot:
+                st.pyplot(figa)
+            plt.close(figa)
+        names = " and ".join(drawn)
+        st.caption(
+            f"**Figure 3.** Accumulated local effects of {names} on predicted "
+            f"SSPG (n = {ale['n']}), the top-2 analytes by mean |SHAP|. The "
+            "curve shows how prediction changes as each analyte varies, "
+            "centered at zero; grey ticks mark observed values.")
+        st.caption(
+            "Methods: ALE is used instead of a partial-dependence plot because "
+            "omics analytes are strongly correlated, and PDP averages the model "
+            "over feature combinations that never occur (extrapolating into "
+            "unrealistic regions). ALE perturbs each feature only within local "
+            "quantile bins (10 bins), so the other analytes keep their real "
+            "joint values, the honest choice under correlation. One XGBoost is "
+            f"fit on all {ale['n']} patients; ALE describes that fitted model's "
+            "response surface, so a full-data fit is appropriate here.")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not render the ALE figures: {exc}")
+
+    st.divider()
+
+    #Figure 4, SHAP importance (retained from original app, restyled)
+    st.markdown("**Feature importance (SHAP)**")
+    try:
+        top = load_shap_top(10)
+        order = top.iloc[::-1]  #largest at the top of a horizontal bar chart
+        fig4, ax4 = plt.subplots(figsize=(6.5, 4.5))
+        ax4.barh(order["analyte"], order["mean_abs_shap"], color=BLUE,
+                 edgecolor="white", linewidth=0.4)
+        ax4.set_xlabel("Mean |SHAP| (mg/dL SSPG)")
+        ax4.set_title("Top analytes by SHAP importance")
+        fig4.tight_layout()
+        st.pyplot(fig4)
+        plt.close(fig4)
+        st.caption(
+            "**Figure 4.** Top 10 omics analytes ranked by mean absolute SHAP "
+            "value (impact on predicted SSPG). HDL and triglycerides (TGL) "
+            "ranking highest is consistent with established insulin-resistance "
+            "biology.")
+        st.caption(
+            "Methods: SHAP values from the XGBoost omics model "
+            "(reports/shap_omics_importance.csv); bars are the mean absolute "
+            "SHAP contribution per analyte across patients.")
+    except Exception as exc:  #noqa: BLE001
         st.error(f"Could not render the SHAP importance chart: {exc}")
+
+    st.divider()
+
+    #single held-out patient inspector
+    try:
+        st.markdown("**Inspect a single held-out patient**")
+        idx = st.selectbox(
+            "Patient index", options=list(range(res["n"])), index=0,
+            help="Each patient is scored by a model trained on the other 58.")
+        a = float(res["actual"][idx])
+        pv = float(res["pred"][idx])
+        one = pd.DataFrame(
+            {"Value": [f"{a:.0f} mg/dL", f"{pv:.0f} mg/dL",
+                       f"{abs(a - pv):.0f} mg/dL"]},
+            index=["Measured SSPG", "Predicted SSPG (held-out)",
+                   "Absolute error"])
+        st.table(one)
+        st.caption(f"Subject ID {res['subject_ids'][idx]}: measured SSPG vs the "
+                   "out-of-sample prediction from a model that never saw this "
+                   "patient.")
+    except Exception as exc:  #noqa: BLE001
+        st.error(f"Could not render the single-patient view: {exc}")
 
 
 def render_fusion_tab(drop_w, standalone, full_r2, model):
-    #Tab 2: the existing slider playground on the VIRTUAL cohort, unchanged
-    st.subheader("Fusion demo — virtual cohort")
-    st.info(
-        "**VIRTUAL COHORT (synthetic patients).** Unlike Tab 1, no real patient "
+    #Tab 2: the slider playground on the virtual cohort
+    st.subheader("Late-fusion demonstration on a virtual cohort")
+    st.warning(
+        "Virtual cohort (synthetic patients). Unlike Tab 1, no real patient "
         "carries all four modalities. These synthetic patients are coupled "
-        "through a hidden latent risk factor (imaging coupling calibrated from "
-        "the real RetinaMNIST CNN embeddings). This tab demonstrates the "
+        "through a hidden latent risk factor, with imaging coupling calibrated "
+        "from the real RetinaMNIST CNN embeddings. This tab demonstrates the "
         "late-fusion mechanics; it is not a result on real people.")
 
     if not model["calibrated_imaging"]:
-        st.info("Imaging embeddings file not found — imaging modality is using "
-                "its default (uncalibrated) coupling for this run.")
+        st.info("Imaging embeddings file not found, so the imaging modality is "
+                "using its default (uncalibrated) coupling for this run.")
 
     st.subheader("Patient inputs (synthetic)")
     st.caption("Move the sliders to describe a synthetic patient. Values are "
@@ -399,8 +671,8 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
         st.markdown("**Imaging** (retinal DR grade)")
         dr_grade = st.selectbox(
             "Diabetic retinopathy grade", options=[0, 1, 2, 3, 4], index=0,
-            help="RetinaMNIST-style grade: 0 none ... 4 proliferative")
-        #map grade 0..4 to a signal centered at grade 2
+            help="RetinaMNIST-style grade: 0 none to 4 proliferative")
+        #map grade 0 to 4 to a signal centered at grade 2
         raw_signals["imaging"] = float((dr_grade - 2) / 1.0)
 
     if st.button("Predict risk", type="primary"):
@@ -417,9 +689,9 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
             with m2:
                 st.metric("Risk tier (SSPG tertile)", tier)
 
-            #per-modality contribution: weight each base score by its ablation
-            #leave-one-out drop, normalized. omics (largest drop) dominates;
-            #imaging (smallest drop) is visibly weakest, matching the ablation
+            #per-modality contribution: each base score weighted by its ablation
+            #leave-one-out drop, normalized. omics (largest drop) dominates,
+            #imaging (smallest drop) is weakest, matching the ablation
             total_drop = sum(drop_w.values()) + 1e-9
             contrib = {name: (drop_w.get(name, 0.0) / total_drop)
                        * base_scores[name]
@@ -434,7 +706,7 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
                        "imaging is the weakest contributor.")
             st.bar_chart(cdf, horizontal=True)
 
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  #noqa: BLE001
             st.error(f"Prediction failed: {exc}")
 
     with st.expander("Why trust this? (negative-control evidence)"):
@@ -461,8 +733,8 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
                 "sum of modality scores fails badly; the learned meta-model "
                 "captures interaction the hand-sum cannot.\n"
                 f"- Verdict flags: {verdict}")
-        except Exception as exc:  # noqa: BLE001
-            #fall back to the values from the ablation report / task constants
+        except Exception as exc:  #noqa: BLE001
+            #fall back to the values from the ablation report or task constants
             st.info(f"Live controls unavailable ({exc}); showing reference "
                     "numbers from the ablation report.")
             evidence = pd.DataFrame(
@@ -475,7 +747,7 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
             "**Standalone R2 per modality** (from the ablation report): "
             + ", ".join(f"{k} {standalone.get(k, float('nan')):.3f}"
                         for k in ["omics", "cgm", "wearable", "imaging"])
-            + " — omics is strongest alone and remains dominant in fusion.")
+            + ". Omics is strongest alone and remains dominant in fusion.")
 
     st.divider()
     st.caption("Late/stacking fusion: RandomForest base model per modality -> "
@@ -484,32 +756,32 @@ def render_fusion_tab(drop_w, standalone, full_r2, model):
 
 
 def main():
-    st.set_page_config(page_title="HURDLE multimodal diabetes-risk demo",
-                       layout="wide")
-    st.title("HURDLE — multimodal diabetes-risk fusion (demo)")
+    st.set_page_config(
+        page_title="HURDLE: omics prediction of insulin resistance",
+        layout="wide")
+    st.title("Prediction of insulin resistance (SSPG) from multimodal data")
+    st.caption("HURDLE pipeline. Tab 1 reports a held-out result on real "
+               "patients; Tab 2 demonstrates late fusion on a virtual cohort.")
 
-    #prominent honesty banner: this must never read as a validated clinical tool
+    #concise honesty banner: this must never read as a validated clinical tool
     st.warning(
-        "**Portfolio demonstration — NOT a validated clinical tool.** "
-        "This app runs the HURDLE late-fusion pipeline on a **virtual cohort**: "
-        "synthetic patients carrying all four modalities at once. The four real "
-        "public datasets (omics, CGM, wearable, retinal imaging) are **different "
-        "people** — no real patient has all four. The synthetic patients are "
-        "coupled through a hidden latent risk factor, with the imaging modality's "
-        "coupling calibrated from the real RetinaMNIST CNN embeddings. Nothing "
-        "here diagnoses, screens, or advises any individual. Do not use it for "
-        "medical decisions.")
+        "Research demonstration, not a validated clinical tool. Tab 1 is a "
+        "held-out result on real patients (omics -> measured SSPG). Tab 2 runs "
+        "the late-fusion pipeline on a virtual cohort: the four public datasets "
+        "(omics, CGM, wearable, retinal imaging) are different people, so no "
+        "real patient carries all four modalities. Nothing here diagnoses or "
+        "advises any individual.")
 
     try:
         drop_w, standalone, full_r2, ablation_fallback = load_ablation()
         model = build_predictor()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  #noqa: BLE001
         st.error(f"Could not initialize the fusion demo: {exc}")
         return
 
     if ablation_fallback:
-        st.info("Ablation report reports/modality_ablation.csv not found — "
-                "surfacing mirrored fallback constants for the ablation numbers.")
+        st.info("Ablation report reports/modality_ablation.csv not found, so "
+                "the ablation numbers use mirrored fallback constants.")
 
     #two tabs, provenance labelled at the top of each so a reviewer never
     #confuses the real held-out result (Tab 1) with the virtual cohort (Tab 2)

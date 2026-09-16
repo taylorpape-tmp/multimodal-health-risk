@@ -1,0 +1,6 @@
+model,LOO_R2,Pearson_r,perm_p,n
+Ridge,0.113,0.507,0.005,59
+ElasticNet,0.474,0.706,0.005,59
+RandomForest,0.463,0.69,0.005,59
+SVR,0.036,0.571,0.0299,59
+XGBoost,0.488,0.699,0.005,59

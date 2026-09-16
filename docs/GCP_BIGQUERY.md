@@ -1,5 +1,12 @@
 # GCP BigQuery — cloud SQL store
 
+> **Status: LIVE.** The load was run successfully against project `hurdle-diabetes`
+> (dataset `hurdle_dataset`, EU). 60 subjects and 14,135 omics feature rows were
+> loaded, and the server-side proof query returned the top-SSPG patients joined to
+> their analyte counts (e.g. ZY7IW45, SSPG 276, 237 analytes). GCP is genuinely
+> exercised end to end.
+
+
 This loads the project's relational store (the same tables that live locally in
 `data/hurdle.db`) into **Google BigQuery**, demonstrating the GCP half of the
 "cloud systems (AWS and GCP)" competency end to end. AWS holds object storage +
@@ -91,3 +98,23 @@ free-trial credit.)
 - **Database technologies / SQL** — Essential. The same normalized schema
   (subjects + long-format omics_features, joined by `subject_id`) runs on both
   SQLite (local) and BigQuery (cloud) — the store is portable by design.
+
+## Data-engineering layer (ELT + partitioning + views + DQ)
+
+Beyond the basic load, `scripts/bq_data_engineering.py` builds a proper
+warehouse layer:
+
+```bash
+python scripts/bq_data_engineering.py --project hurdle-diabetes --location EU
+```
+
+It demonstrates:
+- **ELT layering** — `hurdle_raw` -> `hurdle_staging` -> `hurdle_analytics`
+- **Partitioning + clustering** — the analytics omics table is range-partitioned
+  by a hashed bucket and clustered by `panel, subject_id` so queries prune
+- **Analytical views** — `omics_wide_s8` (long->wide via `PIVOT`) and
+  `patient_multimodal` (subjects + omics aggregates + CGM via the crosswalk)
+- **Window-function analytics** — `RANK() OVER (PARTITION BY iris_class ...)`
+- **SQL data-quality checks** — null, range, and referential-integrity assertions
+
+All within the BigQuery free tier on this ~1.4 MB store.

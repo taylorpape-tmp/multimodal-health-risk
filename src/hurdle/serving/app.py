@@ -103,7 +103,7 @@ def _load_model() -> None:
     """
     global _model
     if os.path.exists(MODEL_PATH):
-        import joblib  # local import: only needed when a checkpoint exists
+        import joblib  #local import: only needed when a checkpoint exists
 
         loaded = joblib.load(MODEL_PATH)
         _model = loaded if isinstance(loaded, ServedModel) else ServedModel(loaded)
@@ -189,7 +189,7 @@ def predict(req: PredictRequest, model: ServedModel = Depends(get_model)) -> Pre
     x = np.asarray(req.features, dtype=float).reshape(1, -1)
     try:
         pred = model.predict(x)
-    except Exception as exc:  # surface shape/dtype mismatches as a clean 400
+    except Exception as exc:  #surface shape/dtype mismatches as a clean 400
         raise HTTPException(status_code=400, detail=f"Prediction failed: {exc}") from exc
     return PredictResponse(
         model=model.name,

@@ -31,7 +31,7 @@ from .transforms import DEFAULT_FOR_FAMILY, build_transform
 
 class MLModel:
     #subclass overrides: name, task, family, param_grid (None = no tuning),
-    #                    _estimator() [returns a BARE estimator], _fold_meta()
+    #_estimator() [returns a BARE estimator], _fold_meta()
     name = 'model'
     task = 'regression'                 #'regression' | 'classification'
     family = 'linear'                   #'tree' | 'linear' | 'kernel' -> default transform

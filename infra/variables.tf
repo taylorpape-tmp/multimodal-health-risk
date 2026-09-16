@@ -1,8 +1,8 @@
-# variables.tf — all inputs. Real values go in terraform.tfvars (gitignored);
-# a committed terraform.tfvars.example shows the shape. No secrets or account
-# IDs are hardcoded anywhere in this repo.
+#variables.tf, all inputs. Real values go in terraform.tfvars (gitignored);
+#a committed terraform.tfvars.example shows the shape. No secrets or account
+#IDs are hardcoded anywhere in this repo.
 
-# ---------- Global ----------
+#Global
 
 variable "environment" {
   description = "Deployment environment label (dev | staging | prod). Tags + name suffixes."
@@ -21,7 +21,7 @@ variable "name_prefix" {
   }
 }
 
-# ---------- AWS ----------
+#AWS
 
 variable "aws_region" {
   description = "AWS region for S3, ECR, IAM, and GPU training. us-east-1 = N. Virginia (cheapest, widest GPU availability)."
@@ -45,7 +45,7 @@ variable "s3_force_destroy" {
   default     = true
 }
 
-# ---- GPU training path (RETFound ViT-L on a spot instance) ----
+#GPU training path (RETFound ViT-L on a spot instance)
 
 variable "enable_gpu_training" {
   description = "Create the training IAM instance profile + security group + launch template. RETFound trains here; CPU-tier models run locally."
@@ -77,7 +77,7 @@ variable "ssh_ingress_cidr" {
   default     = "127.0.0.1/32"
 }
 
-# ---------- CI/CD (GitHub OIDC -> AWS) ----------
+#CI/CD (GitHub OIDC -> AWS)
 
 variable "github_owner" {
   description = "GitHub org/user that owns the repo, e.g. \"taylorpape\". Scopes the OIDC trust policy."
@@ -97,7 +97,7 @@ variable "create_github_oidc_provider" {
   default     = true
 }
 
-# ---------- GCP ----------
+#GCP
 
 variable "gcp_project_id" {
   description = "Your GCP project ID (not the number). Placeholder only in .example."

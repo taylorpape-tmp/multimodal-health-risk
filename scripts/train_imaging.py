@@ -21,7 +21,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hurdle.imaging import dataset, transfer  # noqa: E402
+from hurdle.imaging import dataset, transfer  #noqa: E402
 
 
 def _device():

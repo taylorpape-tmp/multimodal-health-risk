@@ -1,4 +1,4 @@
-"""Pluggable feature transforms — a 'transform ladder' alongside the model ladder.
+"""Pluggable feature transforms, a 'transform ladder' alongside the model ladder.
 
 Which transform is right depends on the DATA and the MODEL:
   - tree models (RF/XGB/LGBM) are scale-invariant -> 'none'

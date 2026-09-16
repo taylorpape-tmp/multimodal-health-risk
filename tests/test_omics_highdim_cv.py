@@ -81,8 +81,8 @@ def _low_rank(n_pat, n_analytes, k_latent, seed, noise=1.5):
 def test_leaky_ge_honest_on_signal_set():
     #the optimism gap points the honest way: the leaky (all-rows) reduction
     #scores >= the honest (per-fold) one on a signal-bearing set.
-    #NOTE: under leave-one-OUT the unsupervised-PCA leak is O(1/n) — the held-out
-    #point barely moves the axes — so the gap is near zero and sign-noisy. The
+    #NOTE: under leave-one-OUT the unsupervised-PCA leak is O(1/n), the held-out
+    #point barely moves the axes, so the gap is near zero and sign-noisy. The
     #leak only bites materially when a whole CHUNK is held out (the leaky PCA is
     #then fit including many test rows). We therefore hold out large groups, and
     #average over replicate datasets so the DIRECTION is asserted, not one draw.

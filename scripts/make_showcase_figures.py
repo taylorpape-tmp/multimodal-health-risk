@@ -28,9 +28,9 @@ from xgboost import XGBRegressor
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from hurdle.features.cgm import extract_cgm_features  # noqa: E402
-from hurdle.features.omics_highdim import build_highdim_matrix  # noqa: E402
-from hurdle.features.wearable import _cosinor  # noqa: E402
+from hurdle.features.cgm import extract_cgm_features  #noqa: E402
+from hurdle.features.omics_highdim import build_highdim_matrix  #noqa: E402
+from hurdle.features.wearable import _cosinor  #noqa: E402
 
 FIGDIR = ROOT / "reports" / "figures"
 CACHE = FIGDIR / ".cache"

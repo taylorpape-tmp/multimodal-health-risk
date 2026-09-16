@@ -17,10 +17,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import pandas as pd  # noqa: E402
+import pandas as pd  #noqa: E402
 
-from hurdle.features import omics_highdim as hd  # noqa: E402
-from hurdle.features.omics_highdim_cv import optimism_gap  # noqa: E402
+from hurdle.features import omics_highdim as hd  #noqa: E402
+from hurdle.features.omics_highdim_cv import optimism_gap  #noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 S4_XLSX = ROOT / "data/raw/clinical/time_molecule_comparison.xlsx"
@@ -33,7 +33,7 @@ MODELS = ("ridge", "xgboost")
 
 
 def load_s4_with_sspg():
-    """Return (X, y, n_labeled, n_crosswalk) — oriented S4 rows with an SSPG label.
+    """Return (X, y, n_labeled, n_crosswalk), oriented S4 rows with an SSPG label.
 
     Join path (as named in the S4 task): the crosswalk
     (cgm_omics_shared_patients.csv) is the site-code<->Zcode spine that ties S4

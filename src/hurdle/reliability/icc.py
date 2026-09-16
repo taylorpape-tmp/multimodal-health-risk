@@ -19,11 +19,11 @@ CONVENTIONS (Shrout & Fleiss, 1979, Psychological Bulletin 86(2):420-428)
 Shrout & Fleiss define three ICC models, each in single-measure (,1) and
 average-measure (,k) forms:
 
-  ICC(1,1) one-way random          — each subject rated by a different set
-  ICC(2,1) two-way random          — same raters, raters drawn from a population,
+  ICC(1,1) one-way random, each subject rated by a different set
+  ICC(2,1) two-way random, same raters, raters drawn from a population,
                                      ABSOLUTE AGREEMENT (systematic rater bias
                                      counts as disagreement)
-  ICC(3,1) two-way mixed           — same fixed raters, CONSISTENCY only
+  ICC(3,1) two-way mixed, same fixed raters, CONSISTENCY only
 
 This module implements the two-way random / absolute-agreement family, i.e.
 ICC(2,1) (single measures) and ICC(2,k) (the reliability of the k-modality
@@ -41,7 +41,7 @@ with, from the two-way ANOVA on the (n subjects x k raters) matrix:
   MSE = residual (error) mean square,         df = (n-1)(k-1)
 
 F-based confidence intervals follow McGraw & Wong (1996, Psychological Methods
-1(1):30-46), Table 7, cases ICC(A,1) and ICC(A,k) — the exact CI companion to
+1(1):30-46), Table 7, cases ICC(A,1) and ICC(A,k), the exact CI companion to
 the Shrout & Fleiss absolute-agreement estimators.
 """
 from dataclasses import dataclass

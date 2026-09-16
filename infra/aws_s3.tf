@@ -1,15 +1,15 @@
-# aws_s3.tf — one private, versioned, encrypted bucket for raw data + model
-# checkpoints. Raw data stays out of git (see .gitignore); this is where it
-# lives in the cloud. RETFound checkpoints written by the GPU training job land
-# under models/.
+#aws_s3.tf, one private, versioned, encrypted bucket for raw data + model
+#checkpoints. Raw data stays out of git (see .gitignore); this is where it
+#lives in the cloud. RETFound checkpoints written by the GPU training job land
+#under models/.
 
 resource "aws_s3_bucket" "data" {
-  # Bucket names are globally unique; account ID suffix avoids collisions.
+  #Bucket names are globally unique; account ID suffix avoids collisions.
   bucket        = "${var.name_prefix}-data-${var.aws_account_id}"
   force_destroy = var.s3_force_destroy
 }
 
-# Keep old versions of checkpoints/data so an overwrite is never a silent loss.
+#Keep old versions of checkpoints/data so an overwrite is never a silent loss.
 resource "aws_s3_bucket_versioning" "data" {
   bucket = aws_s3_bucket.data.id
   versioning_configuration {
@@ -17,8 +17,8 @@ resource "aws_s3_bucket_versioning" "data" {
   }
 }
 
-# Encrypt at rest. SSE-S3 (AES256) is free and needs no key management; switch
-# to aws:kms if you need audited, rot-able keys.
+#Encrypt at rest. SSE-S3 (AES256) is free and needs no key management; switch
+#to aws:kms if you need audited, rot-able keys.
 resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
   bucket = aws_s3_bucket.data.id
   rule {
@@ -29,7 +29,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
   }
 }
 
-# Private: block every form of public access.
+#Private: block every form of public access.
 resource "aws_s3_bucket_public_access_block" "data" {
   bucket                  = aws_s3_bucket.data.id
   block_public_acls       = true
@@ -38,8 +38,8 @@ resource "aws_s3_bucket_public_access_block" "data" {
   restrict_public_buckets = true
 }
 
-# Lifecycle: expire noncurrent versions after 90 days and abort stale multipart
-# uploads, so old checkpoints don't accrue storage cost forever.
+#Lifecycle: expire noncurrent versions after 90 days and abort stale multipart
+#uploads, so old checkpoints don't accrue storage cost forever.
 resource "aws_s3_bucket_lifecycle_configuration" "data" {
   bucket = aws_s3_bucket.data.id
 

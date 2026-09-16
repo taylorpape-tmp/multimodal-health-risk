@@ -1,6 +1,6 @@
-# outputs.tf — values the ML code and the runbook need after apply.
+#outputs.tf, values the ML code and the runbook need after apply.
 
-# ---------- AWS ----------
+#AWS
 
 output "s3_data_bucket" {
   description = "S3 bucket for raw data + model checkpoints. Set HURDLE_DATA_BUCKET to this."
@@ -32,7 +32,7 @@ output "training_instance_profile" {
   value       = var.enable_gpu_training ? aws_iam_instance_profile.training[0].name : null
 }
 
-# ---------- GCP ----------
+#GCP
 
 output "bigquery_dataset_id" {
   description = "BigQuery dataset holding the structured/omics tables."

@@ -31,9 +31,9 @@ from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hurdle.features.omics import build_feature_matrix  # noqa: E402
-from hurdle.privacy.dp import dp_output_perturbed_logistic, dp_summary_table  # noqa: E402
-from hurdle.privacy.federated import simulate_federated_training  # noqa: E402
+from hurdle.features.omics import build_feature_matrix  #noqa: E402
+from hurdle.privacy.dp import dp_output_perturbed_logistic, dp_summary_table  #noqa: E402
+from hurdle.privacy.federated import simulate_federated_training  #noqa: E402
 
 INTERIM = "data/interim"
 REPORTS = Path("reports")
