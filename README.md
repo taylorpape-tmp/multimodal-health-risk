@@ -46,8 +46,7 @@ pytest -q          # run the test suite
 ruff check src tests scripts
 ```
 
-Data is not committed (see `.gitignore`). To fetch the public sources, see `scripts/download_data.sh`
-and `docs/DATA_CARD.md`.
+Data is not committed (see `.gitignore`). To fetch the public sources, see `scripts/download_data.sh`.
 
 ## Key scripts
 
@@ -59,14 +58,6 @@ python scripts/run_fusion_demo.py      # fusion + controls on the virtual cohort
 python scripts/train_imaging.py --backbone resnet50 --epochs 15 --res 224   # retinal CNN
 python scripts/make_showcase_figures.py  # regenerate the figure suite
 ```
-
-## Documentation
-
-- `reports/PROJECT_REPORT.md` — full project writeup (methods, results, person-spec mapping)
-- `docs/DATA_CARD.md` — dataset provenance, licences, sizes
-- `docs/SQL_LAYER.md` — schema and query design
-- `docs/CLOUD_SETUP.md` — AWS/GCP provisioning walkthrough
-- `docs/SERVING.md` — Docker → ECR → deploy path
 
 ## Data sources
 

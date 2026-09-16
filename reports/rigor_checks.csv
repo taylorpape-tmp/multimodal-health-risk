@@ -1,7 +1,0 @@
-check,r2,n
-non_nested_optimistic,0.4678,59
-nested_honest,0.4557,59
-optimism_gap,0.0121,59
-baseline_predict_mean,-0.0348,59
-baseline_shuffled_features,-0.2412,59
-baseline_random_noise,-0.2209,59

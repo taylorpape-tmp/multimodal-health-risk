@@ -1,4 +1,0 @@
-model,loo_r2,pearson_r,p_value,n,n_features
-omics_only,0.106,0.527,0.0203,19,85
-cgm_only,-0.43,0.165,0.501,19,14
-omics_plus_cgm,0.104,0.493,0.0321,19,99
